@@ -1,0 +1,60 @@
+# -----------------------------------------------------------------------
+# OpenAI config: GPT-4o-mini generator, GPT-4o judge
+#
+# Requirements:
+#   OPENAI_API_KEY - https://platform.openai.com
+#   COHERE_API_KEY - free tier at https://cohere.com
+#
+# Install extra: uv sync --extra openai
+#
+# Cost estimate for full 500-question benchmark: ~$12-18
+#   (GPT-4o judge is the primary cost driver)
+# -----------------------------------------------------------------------
+
+dataset:
+  name: hotpotqa
+  split: validation
+  sample_size: 500
+  seed: 42
+
+retrieval:
+  chunk_size: 512
+  chunk_overlap: 50
+  top_k: 5
+  top_k_rerank: 20
+
+generator:
+  provider: openai
+  model: gpt-4o-mini
+  temperature: 0.1
+  max_tokens: 512
+
+judge:
+  provider: openai
+  model: gpt-4o
+  temperature: 0.0
+  max_tokens: 1024
+
+embeddings:
+  provider: openai
+  model: text-embedding-3-small
+  batch_size: 32
+
+reranker:
+  provider: cohere
+  model: rerank-english-v3.0
+  top_n: 5
+  enabled: true
+
+strategies:
+  - naive
+  - hybrid
+  - rerank
+  - hyde
+  - multi_query
+
+output:
+  dir: results
+  predictions: true
+  scorecard: true
+  report: true

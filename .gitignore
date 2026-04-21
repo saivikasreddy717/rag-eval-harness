@@ -1,0 +1,51 @@
+# Environment — never commit secrets
+.env
+.env.*
+!.env.example
+
+# Generated data and results (large, reproducible)
+data/
+results/
+*.jsonl
+*.faiss
+*.pkl
+*.npy
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# Virtual environments (uv uses .venv)
+.venv/
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Hugging Face model cache (large, re-downloadable)
+.cache/
+models/
+
+# uv
+uv.lock.bak

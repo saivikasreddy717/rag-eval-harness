@@ -1,0 +1,61 @@
+# -----------------------------------------------------------------------
+# Fully local config: Ollama (no API keys, no internet after setup)
+#
+# Requirements:
+#   1. Install Ollama: https://ollama.com
+#   2. Pull a model: ollama pull llama3.1
+#   3. Install extra: uv sync --extra ollama
+#
+# Optional reranker (disable if no internet):
+#   Set reranker.enabled: false to skip Cohere entirely.
+#
+# Cost: $0 — runs 100% on your machine
+# -----------------------------------------------------------------------
+
+dataset:
+  name: hotpotqa
+  split: validation
+  sample_size: 100   # smaller sample recommended for local inference
+  seed: 42
+
+retrieval:
+  chunk_size: 512
+  chunk_overlap: 50
+  top_k: 5
+  top_k_rerank: 20
+
+generator:
+  provider: ollama
+  model: llama3.1   # change to any locally installed model
+  temperature: 0.1
+  max_tokens: 512
+
+judge:
+  provider: ollama
+  model: llama3.1   # use a larger model if available (e.g. llama3.1:70b)
+  temperature: 0.0
+  max_tokens: 1024
+
+embeddings:
+  provider: local
+  model: BAAI/bge-large-en-v1.5
+  batch_size: 16   # lower batch size for CPU inference
+
+reranker:
+  provider: cohere
+  model: rerank-english-v3.0
+  top_n: 5
+  enabled: true   # set to false for 100% offline operation
+
+strategies:
+  - naive
+  - hybrid
+  - rerank
+  - hyde
+  - multi_query
+
+output:
+  dir: results
+  predictions: true
+  scorecard: true
+  report: true
