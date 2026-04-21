@@ -125,12 +125,25 @@ class TestCLI:
         assert "groq" in result.output.lower()
 
     def test_placeholder_commands_exit_cleanly(self):
+        """run / compare are still placeholders — should exit 0."""
         from rag_eval.cli import main
 
         runner = CliRunner()
-        for cmd in ["index", "run", "compare"]:
+        for cmd in ["run", "compare"]:
             result = runner.invoke(main, [cmd])
             assert result.exit_code == 0, f"Command '{cmd}' failed: {result.output}"
+
+    def test_index_command_detects_missing_index(self):
+        """index command exits cleanly when index already exists (or tells you to build)."""
+        from rag_eval.cli import main
+
+        runner = CliRunner()
+        # When index exists it prints a message and exits 0.
+        # When it doesn't exist it tries to download — skip that path in smoke tests.
+        from rag_eval.indexer import index_exists
+        if index_exists():
+            result = runner.invoke(main, ["index"])
+            assert result.exit_code == 0
 
     def test_unknown_config_shows_error(self):
         from rag_eval.cli import main

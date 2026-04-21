@@ -99,19 +99,52 @@ def info(ctx: click.Context) -> None:
 # ---------------------------------------------------------------------------
 
 @main.command()
+@click.option("--rebuild", is_flag=True, default=False, help="Force rebuild even if index exists.")
 @click.pass_context
-def index(ctx: click.Context) -> None:
-    """Build FAISS index from dataset chunks. [Phase 1]"""
-    console.print(Panel(
-        "[yellow]Coming in Phase 1[/yellow]\n\n"
-        "This command will:\n"
-        "  1. Download the HotpotQA dataset\n"
-        "  2. Chunk passages with overlap\n"
-        "  3. Embed chunks with your configured embeddings model\n"
-        "  4. Persist a FAISS index to data/index/",
-        title="index",
-        border_style="yellow",
-    ))
+def index(ctx: click.Context, rebuild: bool) -> None:
+    """Build FAISS + BM25 index from dataset chunks."""
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    from rag_eval.config import load_config
+    from rag_eval.datasets import load_hotpotqa
+    from rag_eval.chunker import chunk_corpus, chunk_stats
+    from rag_eval.indexer import build_index, index_exists
+
+    cfg = load_config(ctx.obj["config_path"])
+
+    if index_exists() and not rebuild:
+        console.print(
+            "[green]Index already exists.[/] "
+            "Use [bold]--rebuild[/] to force a fresh build."
+        )
+        return
+
+    # Step 1: load dataset
+    console.rule("[cyan]Step 1/3  Dataset[/]")
+    data = load_hotpotqa(cfg.dataset, force=rebuild)
+
+    # Step 2: chunk
+    console.rule("[cyan]Step 2/3  Chunking[/]")
+    chunks = chunk_corpus(data["corpus"], cfg.retrieval)
+    stats = chunk_stats(chunks, cfg.retrieval)
+    console.print(
+        f"[green]{stats['num_chunks']} chunks[/] "
+        f"from {len(data['corpus'])} passages "
+        f"(avg {stats['avg_tokens']} tokens, "
+        f"range {stats['min_tokens']}-{stats['max_tokens']})"
+    )
+
+    # Step 3: embed + build index
+    console.rule("[cyan]Step 3/3  Indexing[/]")
+    build_index(chunks, cfg)
+
+    console.rule("[green]Done[/]")
+    console.print(
+        f"[bold green]Index ready.[/] "
+        f"{stats['num_chunks']} chunks indexed. "
+        f"Run [bold]python -m rag_eval run[/] next."
+    )
 
 
 @main.command()
