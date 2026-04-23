@@ -289,13 +289,25 @@ def eval_cmd(ctx: click.Context, strategy: tuple[str, ...], max_questions: int |
 @main.command()
 @click.pass_context
 def compare(ctx: click.Context) -> None:
-    """Compare all strategies and generate scorecard + HTML report. [Phase 5]"""
-    console.print(Panel(
-        "[yellow]Coming in Phase 5[/yellow]\n\n"
-        "This command will:\n"
-        "  1. Load all scorecard CSVs\n"
-        "  2. Build strategy x metric comparison matrix\n"
-        "  3. Generate results.csv + report.html with plotly charts",
-        title="compare",
-        border_style="yellow",
-    ))
+    """Load all scorecards, build comparison matrix, and generate results.csv + report.html."""
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    from rag_eval.config import load_config
+    from rag_eval.reporter import compare_strategies
+
+    cfg = load_config(ctx.obj["config_path"])
+
+    try:
+        results_csv, report_html = compare_strategies(cfg)
+    except FileNotFoundError as exc:
+        console.print(f"[red]{exc}[/]")
+        raise SystemExit(1)
+
+    console.rule("[green]Done[/]")
+    console.print(
+        f"[bold green]Comparison complete.[/]\n"
+        f"  Results CSV : [cyan]{results_csv}[/]\n"
+        f"  HTML report : [cyan]{report_html}[/]\n\n"
+        "Open [bold]report.html[/] in any browser to explore the interactive charts."
+    )
