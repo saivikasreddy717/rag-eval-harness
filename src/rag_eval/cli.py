@@ -151,21 +151,66 @@ def index(ctx: click.Context, rebuild: bool) -> None:
 @click.option(
     "--strategy", "-s",
     multiple=True,
-    help="Strategy to run. Repeat to run multiple. Default: all strategies in config.",
+    help="Strategy to run. Repeat for multiple. Default: all strategies in config.",
 )
 @click.pass_context
 def run(ctx: click.Context, strategy: tuple[str, ...]) -> None:
-    """Run RAG strategies and collect predictions. [Phase 2-4]"""
-    console.print(Panel(
-        "[yellow]Coming in Phase 2-4[/yellow]\n\n"
-        "This command will:\n"
-        "  1. Load index from data/index/\n"
-        "  2. Run each strategy on the dataset\n"
-        "  3. Track cost and latency per query\n"
-        "  4. Save predictions to results/predictions_<strategy>.jsonl",
-        title="run",
-        border_style="yellow",
-    ))
+    """Run RAG strategies over the dataset and collect predictions."""
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    from pathlib import Path
+    from rag_eval.config import load_config
+    from rag_eval.datasets import load_hotpotqa
+    from rag_eval.indexer import RAGIndex, index_exists
+    from rag_eval.runner import run_strategy
+    from rag_eval.strategies import get_strategy, STRATEGY_REGISTRY
+
+    cfg = load_config(ctx.obj["config_path"])
+
+    if not index_exists():
+        console.print(
+            "[red]No index found.[/] Run [bold]python -m rag_eval index[/] first."
+        )
+        raise SystemExit(1)
+
+    # Resolve which strategies to run
+    strategies_to_run = list(strategy) if strategy else cfg.strategies
+    not_implemented = [s for s in strategies_to_run if s not in STRATEGY_REGISTRY]
+    if not_implemented:
+        console.print(
+            f"[yellow]Skipping not-yet-implemented strategies:[/] "
+            f"{', '.join(not_implemented)}"
+        )
+        strategies_to_run = [s for s in strategies_to_run if s in STRATEGY_REGISTRY]
+
+    if not strategies_to_run:
+        console.print("[red]No implemented strategies to run.[/]")
+        raise SystemExit(1)
+
+    # Load shared resources once
+    console.print("[cyan]Loading dataset and index...[/]")
+    data = load_hotpotqa(cfg.dataset)
+    rag_index = RAGIndex.load()
+    output_dir = Path(cfg.output.dir)
+
+    console.print(
+        f"Running [bold]{len(strategies_to_run)}[/] "
+        f"strateg{'y' if len(strategies_to_run) == 1 else 'ies'}: "
+        f"[cyan]{', '.join(strategies_to_run)}[/]"
+    )
+    console.print(f"Dataset: [cyan]{len(data['qa_pairs'])} questions[/]\n")
+
+    for strategy_name in strategies_to_run:
+        console.rule(f"[cyan]{strategy_name}[/]")
+        strat = get_strategy(strategy_name, cfg, rag_index)
+        run_strategy(strat, data["qa_pairs"], output_dir)
+
+    console.rule("[green]All strategies complete[/]")
+    console.print(
+        f"Predictions saved to [cyan]{cfg.output.dir}/[/]. "
+        "Run [bold]python -m rag_eval eval[/] next."
+    )
 
 
 @main.command("eval")
