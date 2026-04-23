@@ -1,0 +1,99 @@
+name: CI
+
+# Run on every push to main and on every pull request targeting main.
+# All 115 tests are CI-safe: external API calls are mocked, no real keys needed.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: "Tests · Python ${{ matrix.python-version }}"
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false   # keep running other versions even if one fails
+      matrix:
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1. Checkout
+      # -----------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # 2. Install uv (the project's package manager)
+      #    enable-cache: true caches the uv download cache across runs
+      # -----------------------------------------------------------------------
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      # -----------------------------------------------------------------------
+      # 3. Pin the Python interpreter (uv manages it, no actions/setup-python)
+      # -----------------------------------------------------------------------
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      # -----------------------------------------------------------------------
+      # 4. Install project + dev dependencies from the lock file
+      # -----------------------------------------------------------------------
+      - name: Install dependencies
+        run: uv sync
+
+      # -----------------------------------------------------------------------
+      # 5. Cache the HuggingFace model weights
+      #    The default embedding model (BAAI/bge-large-en-v1.5, ~1.3 GB) is
+      #    downloaded once per OS and reused on all subsequent runs.
+      #    Cache key is fixed so it survives across commits.
+      # -----------------------------------------------------------------------
+      - name: Cache HuggingFace model weights
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub
+          key: hf-bge-large-en-v1.5-${{ runner.os }}
+
+      # -----------------------------------------------------------------------
+      # 6. Run the full test suite
+      #    TOKENIZERS_PARALLELISM=false  — suppresses HF tokenizers fork warning
+      #    No API keys are set; tests that need them use patch.dict to mock them
+      # -----------------------------------------------------------------------
+      - name: Run tests
+        run: uv run pytest tests/ -v --tb=short
+        env:
+          TOKENIZERS_PARALLELISM: "false"
+
+  # ---------------------------------------------------------------------------
+  # Lint job — runs in parallel with the test matrix
+  # ---------------------------------------------------------------------------
+  lint:
+    name: "Lint (ruff)"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Lint with ruff
+        run: uv run ruff check src/ tests/
+
+      - name: Check formatting with ruff
+        run: uv run ruff format --check src/ tests/

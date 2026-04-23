@@ -4,15 +4,11 @@ Phase 1 tests — dataset loading, chunking, and index build/load.
 All tests use a small in-memory fixture so no network calls or
 API keys are required. Safe to run in CI.
 """
-from __future__ import annotations
 
-import json
-import tempfile
-from pathlib import Path
+from __future__ import annotations
 
 import numpy as np
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Shared fixture: minimal fake dataset
@@ -65,8 +61,8 @@ FAKE_QA_PAIRS = [
 # Chunker tests
 # ---------------------------------------------------------------------------
 
-class TestChunker:
 
+class TestChunker:
     def test_basic_chunking(self):
         from rag_eval.chunker import chunk_corpus
         from rag_eval.config import RetrievalConfig
@@ -130,25 +126,27 @@ class TestChunker:
 # Index build + load tests (uses a temp dir, no GPU/API needed)
 # ---------------------------------------------------------------------------
 
-class TestIndexer:
 
+class TestIndexer:
     @pytest.fixture
     def fake_chunks(self):
         from rag_eval.chunker import chunk_corpus
         from rag_eval.config import RetrievalConfig
+
         return chunk_corpus(FAKE_CORPUS, RetrievalConfig(chunk_size=512, chunk_overlap=50))
 
     @pytest.fixture
     def fake_config(self):
         """Config using local BGE embeddings (no API key needed)."""
         from rag_eval.config import Config
-        return Config()   # defaults: local BGE-large embeddings
+
+        return Config()  # defaults: local BGE-large embeddings
 
     def test_index_builds_and_loads(self, fake_chunks, fake_config, tmp_path):
-        from rag_eval.indexer import build_index, RAGIndex
-
         # Patch INDEX_DIR to use tmp_path so tests don't pollute data/
         import rag_eval.indexer as indexer_mod
+        from rag_eval.indexer import RAGIndex, build_index
+
         original_dir = indexer_mod.INDEX_DIR
         indexer_mod.INDEX_DIR = tmp_path
         indexer_mod.FAISS_PATH = tmp_path / "faiss.index"
@@ -175,8 +173,8 @@ class TestIndexer:
             indexer_mod.META_PATH = original_dir / "index_meta.json"
 
     def test_dense_search_returns_top_k(self, fake_chunks, fake_config, tmp_path):
-        from rag_eval.indexer import build_index, RAGIndex
         import rag_eval.indexer as indexer_mod
+        from rag_eval.indexer import RAGIndex, build_index
 
         original_dir = indexer_mod.INDEX_DIR
         indexer_mod.INDEX_DIR = tmp_path
@@ -207,8 +205,8 @@ class TestIndexer:
             indexer_mod.META_PATH = original_dir / "index_meta.json"
 
     def test_bm25_search_returns_relevant_results(self, fake_chunks, fake_config, tmp_path):
-        from rag_eval.indexer import build_index, RAGIndex
         import rag_eval.indexer as indexer_mod
+        from rag_eval.indexer import RAGIndex, build_index
 
         original_dir = indexer_mod.INDEX_DIR
         indexer_mod.INDEX_DIR = tmp_path
@@ -240,8 +238,8 @@ class TestIndexer:
 # Dataset structure tests (no network — validates TypedDict keys)
 # ---------------------------------------------------------------------------
 
-class TestDatasetStructure:
 
+class TestDatasetStructure:
     def test_qa_pair_has_required_keys(self):
         for qa in FAKE_QA_PAIRS:
             assert "id" in qa

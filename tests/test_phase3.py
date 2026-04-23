@@ -4,6 +4,7 @@ Phase 3 tests — RAGAS evaluation layer (evaluator.py) and CLI eval command.
 All RAGAS calls are mocked so no API keys or network access are required.
 Safe to run in CI.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,29 +15,33 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_predictions_file(tmp_path: Path, strategy: str = "naive", n: int = 3) -> Path:
     """Write a minimal predictions JSONL with n valid records."""
     lines = []
     for i in range(n):
-        lines.append(json.dumps({
-            "id": f"q{i}",
-            "question": f"Question {i}?",
-            "answer": f"Answer {i}.",
-            "contexts": [f"Context {i}A.", f"Context {i}B."],
-            "reference_answer": f"Reference {i}.",
-            "reference_contexts": [f"Context {i}A."],
-            "strategy": strategy,
-            "latency_ms": 100.0 + i * 10,
-            "cost_usd": 0.0001,
-            "prompt_tokens": 200 + i,
-            "completion_tokens": 30 + i,
-            "metadata": {"strategy": strategy},
-        }))
+        lines.append(
+            json.dumps(
+                {
+                    "id": f"q{i}",
+                    "question": f"Question {i}?",
+                    "answer": f"Answer {i}.",
+                    "contexts": [f"Context {i}A.", f"Context {i}B."],
+                    "reference_answer": f"Reference {i}.",
+                    "reference_contexts": [f"Context {i}A."],
+                    "strategy": strategy,
+                    "latency_ms": 100.0 + i * 10,
+                    "cost_usd": 0.0001,
+                    "prompt_tokens": 200 + i,
+                    "completion_tokens": 30 + i,
+                    "metadata": {"strategy": strategy},
+                }
+            )
+        )
     pred_file = tmp_path / f"predictions_{strategy}.jsonl"
     pred_file.write_text("\n".join(lines), encoding="utf-8")
     return pred_file
@@ -44,20 +49,22 @@ def _make_predictions_file(tmp_path: Path, strategy: str = "naive", n: int = 3) 
 
 def _make_error_predictions_file(tmp_path: Path) -> Path:
     """Write a predictions JSONL where every record is an error."""
-    record = json.dumps({
-        "id": "q0",
-        "question": "What?",
-        "answer": "",
-        "contexts": [],
-        "reference_answer": "Ref.",
-        "reference_contexts": [],
-        "strategy": "naive",
-        "latency_ms": 0.0,
-        "cost_usd": 0.0,
-        "prompt_tokens": 0,
-        "completion_tokens": 0,
-        "metadata": {"error": "Simulated API error"},
-    })
+    record = json.dumps(
+        {
+            "id": "q0",
+            "question": "What?",
+            "answer": "",
+            "contexts": [],
+            "reference_answer": "Ref.",
+            "reference_contexts": [],
+            "strategy": "naive",
+            "latency_ms": 0.0,
+            "cost_usd": 0.0,
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "metadata": {"error": "Simulated API error"},
+        }
+    )
     pred_file = tmp_path / "predictions_naive.jsonl"
     pred_file.write_text(record, encoding="utf-8")
     return pred_file
@@ -65,15 +72,17 @@ def _make_error_predictions_file(tmp_path: Path) -> Path:
 
 def _mock_ragas_result(n_rows: int = 3) -> MagicMock:
     """Return a mock RAGAS result whose .to_pandas() returns a plausible DataFrame."""
-    df = pd.DataFrame({
-        "user_input": [f"Question {i}?" for i in range(n_rows)],
-        "response": [f"Answer {i}." for i in range(n_rows)],
-        "faithfulness": [0.9, 0.8, 0.85][:n_rows],
-        "answer_relevancy": [0.88, 0.79, 0.84][:n_rows],
-        "context_precision": [0.75, 0.70, 0.72][:n_rows],
-        "context_recall": [0.80, 0.77, 0.78][:n_rows],
-        "answer_correctness": [0.70, 0.65, 0.68][:n_rows],
-    })
+    df = pd.DataFrame(
+        {
+            "user_input": [f"Question {i}?" for i in range(n_rows)],
+            "response": [f"Answer {i}." for i in range(n_rows)],
+            "faithfulness": [0.9, 0.8, 0.85][:n_rows],
+            "answer_relevancy": [0.88, 0.79, 0.84][:n_rows],
+            "context_precision": [0.75, 0.70, 0.72][:n_rows],
+            "context_recall": [0.80, 0.77, 0.78][:n_rows],
+            "answer_correctness": [0.70, 0.65, 0.68][:n_rows],
+        }
+    )
     mock_result = MagicMock()
     mock_result.to_pandas.return_value = df
     return mock_result
@@ -92,7 +101,6 @@ _EVAL_PATCHES = [
 
 def _apply_eval_patches(test_fn):
     """Stack all five evaluator patches onto a test function."""
-    import functools
     for target in reversed(_EVAL_PATCHES):
         test_fn = patch(target)(test_fn)
     return test_fn
@@ -102,16 +110,18 @@ def _apply_eval_patches(test_fn):
 # evaluator._load_predictions
 # ---------------------------------------------------------------------------
 
-class TestLoadPredictions:
 
+class TestLoadPredictions:
     def test_loads_all_lines(self, tmp_path):
         from rag_eval.evaluator import _load_predictions
+
         pred_file = _make_predictions_file(tmp_path, n=5)
         preds = _load_predictions(pred_file)
         assert len(preds) == 5
 
     def test_skips_blank_lines(self, tmp_path):
         from rag_eval.evaluator import _load_predictions
+
         pred_file = tmp_path / "preds.jsonl"
         pred_file.write_text(
             '{"id": "q1", "answer": "A"}\n\n{"id": "q2", "answer": "B"}\n',
@@ -122,6 +132,7 @@ class TestLoadPredictions:
 
     def test_raises_for_missing_file(self, tmp_path):
         from rag_eval.evaluator import _load_predictions
+
         with pytest.raises(FileNotFoundError):
             _load_predictions(tmp_path / "nonexistent.jsonl")
 
@@ -130,8 +141,8 @@ class TestLoadPredictions:
 # evaluator._build_ragas_dataset
 # ---------------------------------------------------------------------------
 
-class TestBuildRagasDataset:
 
+class TestBuildRagasDataset:
     def test_builds_dataset_from_valid_predictions(self):
         from rag_eval.evaluator import _build_ragas_dataset
 
@@ -154,7 +165,7 @@ class TestBuildRagasDataset:
         preds = [
             {
                 "question": "What is alpha?",
-                "answer": "",          # empty — should be skipped
+                "answer": "",  # empty — should be skipped
                 "contexts": [],
                 "reference_answer": "Ref.",
                 "reference_contexts": [],
@@ -175,14 +186,16 @@ class TestBuildRagasDataset:
     def test_sample_fields_are_set_correctly(self):
         from rag_eval.evaluator import _build_ragas_dataset
 
-        preds = [{
-            "question": "Q?",
-            "answer": "A.",
-            "contexts": ["C1", "C2"],
-            "reference_answer": "R.",
-            "reference_contexts": ["C1"],
-            "metadata": {},
-        }]
+        preds = [
+            {
+                "question": "Q?",
+                "answer": "A.",
+                "contexts": ["C1", "C2"],
+                "reference_answer": "R.",
+                "reference_contexts": ["C1"],
+                "metadata": {},
+            }
+        ]
         dataset = _build_ragas_dataset(preds)
         sample = dataset.samples[0]
         assert sample.user_input == "Q?"
@@ -196,8 +209,8 @@ class TestBuildRagasDataset:
 # evaluator.evaluate_predictions  (all ragas I/O mocked)
 # ---------------------------------------------------------------------------
 
-class TestEvaluatePredictions:
 
+class TestEvaluatePredictions:
     @patch("rag_eval.evaluator.LangchainEmbeddingsWrapper")
     @patch("rag_eval.evaluator.LangchainLLMWrapper")
     @patch("rag_eval.evaluator.get_embeddings")
@@ -298,7 +311,7 @@ class TestEvaluatePredictions:
         tmp_path,
     ):
         from rag_eval.config import Config, OutputConfig
-        from rag_eval.evaluator import evaluate_predictions, _METRIC_NAMES
+        from rag_eval.evaluator import _METRIC_NAMES, evaluate_predictions
 
         pred_file = _make_predictions_file(tmp_path, n=3)
         mock_evaluate.return_value = _mock_ragas_result(n_rows=3)
@@ -441,8 +454,8 @@ class TestEvaluatePredictions:
 # CLI eval command
 # ---------------------------------------------------------------------------
 
-class TestEvalCLI:
 
+class TestEvalCLI:
     @patch("rag_eval.evaluator.LangchainEmbeddingsWrapper")
     @patch("rag_eval.evaluator.LangchainLLMWrapper")
     @patch("rag_eval.evaluator.get_embeddings")
@@ -458,9 +471,10 @@ class TestEvalCLI:
         tmp_path,
     ):
         from click.testing import CliRunner
+
         from rag_eval.cli import main
 
-        pred_file = _make_predictions_file(tmp_path, strategy="naive", n=2)
+        _make_predictions_file(tmp_path, strategy="naive", n=2)
         mock_evaluate.return_value = _mock_ragas_result(n_rows=2)
 
         # Minimal config YAML pointing output to tmp_path
@@ -479,7 +493,7 @@ class TestEvalCLI:
                 strategies:
                   - naive
                 output:
-                  dir: "{str(tmp_path).replace(chr(92), '/')}"
+                  dir: "{str(tmp_path).replace(chr(92), "/")}"
             """),
             encoding="utf-8",
         )
@@ -496,6 +510,7 @@ class TestEvalCLI:
     def test_eval_command_missing_predictions_warns(self, tmp_path):
         """eval with no prediction files should print a warning and exit 1."""
         from click.testing import CliRunner
+
         from rag_eval.cli import main
 
         config_yaml = tmp_path / "test_config.yaml"
@@ -513,7 +528,7 @@ class TestEvalCLI:
                 strategies:
                   - naive
                 output:
-                  dir: "{str(tmp_path).replace(chr(92), '/')}"
+                  dir: "{str(tmp_path).replace(chr(92), "/")}"
             """),
             encoding="utf-8",
         )
@@ -543,6 +558,7 @@ class TestEvalCLI:
     ):
         """--max-questions 2 should limit evaluation to 2 samples."""
         from click.testing import CliRunner
+
         from rag_eval.cli import main
 
         _make_predictions_file(tmp_path, strategy="naive", n=5)
@@ -563,7 +579,7 @@ class TestEvalCLI:
                 strategies:
                   - naive
                 output:
-                  dir: "{str(tmp_path).replace(chr(92), '/')}"
+                  dir: "{str(tmp_path).replace(chr(92), "/")}"
             """),
             encoding="utf-8",
         )

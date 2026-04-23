@@ -9,6 +9,7 @@ Pipeline:
 This is the baseline all other strategies are compared against.
 It represents the simplest possible RAG implementation.
 """
+
 from __future__ import annotations
 
 from rag_eval.strategies.base import BaseStrategy, RAGResult

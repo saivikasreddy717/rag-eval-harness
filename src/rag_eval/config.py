@@ -7,14 +7,13 @@ Swap providers and models without touching any code.
 Supported LLM providers   : groq, openai, anthropic, ollama, google
 Supported embed providers : local, openai, cohere, ollama, google
 """
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
-
 
 VALID_STRATEGIES = frozenset({"naive", "hybrid", "rerank", "hyde", "multi_query"})
 VALID_LLM_PROVIDERS = frozenset({"groq", "openai", "anthropic", "ollama", "google"})
@@ -24,6 +23,7 @@ VALID_RERANK_PROVIDERS = frozenset({"cohere", "none"})
 
 class LLMConfig(BaseModel):
     """Config for the generator LLM (produces answers in the RAG pipeline)."""
+
     provider: str = "groq"
     model: str = "meta-llama/llama-4-scout-17b-16e-instruct"
     temperature: float = Field(default=0.1, ge=0.0, le=2.0)
@@ -41,6 +41,7 @@ class LLMConfig(BaseModel):
 
 class JudgeConfig(BaseModel):
     """Config for the judge LLM (scores answers in RAGAS evaluation)."""
+
     provider: str = "groq"
     model: str = "llama-3.3-70b-versatile"
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)
@@ -58,6 +59,7 @@ class JudgeConfig(BaseModel):
 
 class EmbeddingsConfig(BaseModel):
     """Config for the embedding model used to build and query the FAISS index."""
+
     provider: str = "local"
     model: str = "BAAI/bge-large-en-v1.5"
     batch_size: int = Field(default=32, gt=0)
@@ -74,6 +76,7 @@ class EmbeddingsConfig(BaseModel):
 
 class RerankerConfig(BaseModel):
     """Config for the optional reranker (used by the 'rerank' strategy)."""
+
     provider: str = "cohere"
     model: str = "rerank-english-v3.0"
     top_n: int = Field(default=5, gt=0)
@@ -82,6 +85,7 @@ class RerankerConfig(BaseModel):
 
 class RetrievalConfig(BaseModel):
     """Chunking and retrieval hyperparameters shared across strategies."""
+
     chunk_size: int = Field(default=512, gt=0)
     chunk_overlap: int = Field(default=50, ge=0)
     top_k: int = Field(default=5, gt=0, description="Chunks returned to the LLM")
@@ -90,6 +94,7 @@ class RetrievalConfig(BaseModel):
 
 class DatasetConfig(BaseModel):
     """Dataset selection and sampling."""
+
     name: str = "hotpotqa"
     split: str = "validation"
     sample_size: int = Field(default=500, gt=0)
@@ -98,6 +103,7 @@ class DatasetConfig(BaseModel):
 
 class OutputConfig(BaseModel):
     """Where to write benchmark artifacts."""
+
     dir: str = "results"
     predictions: bool = True
     scorecard: bool = True
@@ -106,6 +112,7 @@ class OutputConfig(BaseModel):
 
 class Config(BaseModel):
     """Root config — validated on load, all fields have sensible defaults."""
+
     dataset: DatasetConfig = Field(default_factory=DatasetConfig)
     retrieval: RetrievalConfig = Field(default_factory=RetrievalConfig)
     generator: LLMConfig = Field(default_factory=LLMConfig)
@@ -123,8 +130,7 @@ class Config(BaseModel):
         invalid = set(v) - VALID_STRATEGIES
         if invalid:
             raise ValueError(
-                f"Unknown strategies: {sorted(invalid)}. "
-                f"Valid options: {sorted(VALID_STRATEGIES)}"
+                f"Unknown strategies: {sorted(invalid)}. Valid options: {sorted(VALID_STRATEGIES)}"
             )
         return v
 

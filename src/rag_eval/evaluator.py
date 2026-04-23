@@ -27,6 +27,7 @@ For 500 questions × 5 metrics = ~5,000 judge calls per strategy.
 On Groq free tier (14,400 req/day for Llama 3.3 70B) that is ~8 hours.
 Use --max-questions to evaluate a subset first, or upgrade to paid tier.
 """
+
 from __future__ import annotations
 
 import json
@@ -77,8 +78,7 @@ def _load_predictions(predictions_file: Path) -> list[dict]:
     predictions_file = Path(predictions_file)
     if not predictions_file.exists():
         raise FileNotFoundError(
-            f"Predictions file not found: {predictions_file}\n"
-            "Run: python -m rag_eval run first."
+            f"Predictions file not found: {predictions_file}\nRun: python -m rag_eval run first."
         )
     predictions = []
     with open(predictions_file, encoding="utf-8") as f:
@@ -137,8 +137,7 @@ def evaluate_predictions(
         predictions = predictions[:max_questions]
 
     valid_predictions = [
-        p for p in predictions
-        if p.get("answer") and not p.get("metadata", {}).get("error")
+        p for p in predictions if p.get("answer") and not p.get("metadata", {}).get("error")
     ]
     skipped = len(predictions) - len(valid_predictions)
 
@@ -163,9 +162,9 @@ def evaluate_predictions(
 
     # Run config: generous timeout + retries for rate-limited APIs
     run_config = RunConfig(
-        timeout=180,       # seconds per individual LLM call
+        timeout=180,  # seconds per individual LLM call
         max_retries=5,
-        max_wait=90,       # max seconds to wait between retries
+        max_wait=90,  # max seconds to wait between retries
     )
 
     console.print(
@@ -181,7 +180,7 @@ def evaluate_predictions(
         llm=judge_llm,
         embeddings=judge_embeddings,
         run_config=run_config,
-        raise_exceptions=False,   # return NaN for failures, don't abort
+        raise_exceptions=False,  # return NaN for failures, don't abort
         show_progress=True,
     )
 
@@ -189,16 +188,18 @@ def evaluate_predictions(
     scores_df = result.to_pandas()
 
     # Merge telemetry columns (latency, cost) from our predictions
-    telemetry = pd.DataFrame([
-        {
-            "question_id": p["id"],
-            "latency_ms": p.get("latency_ms", 0.0),
-            "cost_usd": p.get("cost_usd", 0.0),
-            "prompt_tokens": p.get("prompt_tokens", 0),
-            "completion_tokens": p.get("completion_tokens", 0),
-        }
-        for p in valid_predictions
-    ])
+    telemetry = pd.DataFrame(
+        [
+            {
+                "question_id": p["id"],
+                "latency_ms": p.get("latency_ms", 0.0),
+                "cost_usd": p.get("cost_usd", 0.0),
+                "prompt_tokens": p.get("prompt_tokens", 0),
+                "completion_tokens": p.get("completion_tokens", 0),
+            }
+            for p in valid_predictions
+        ]
+    )
 
     # Merge on position (RAGAS preserves insertion order)
     if len(telemetry) == len(scores_df):

@@ -22,10 +22,10 @@ Each line:
   "metadata": {...}
 }
 """
+
 from __future__ import annotations
 
 import json
-import time
 from pathlib import Path
 
 from rich.console import Console
@@ -84,39 +84,43 @@ def run_strategy(
             try:
                 result = strategy.answer(qa["question"])
 
-                predictions.append({
-                    "id": qa["id"],
-                    "question": qa["question"],
-                    "answer": result.answer,
-                    "contexts": result.contexts,
-                    "reference_answer": qa["reference_answer"],
-                    "reference_contexts": qa["reference_contexts"],
-                    "strategy": strategy.name,
-                    "latency_ms": round(result.latency_ms, 2),
-                    "cost_usd": round(result.cost_usd, 6),
-                    "prompt_tokens": result.prompt_tokens,
-                    "completion_tokens": result.completion_tokens,
-                    "metadata": result.metadata,
-                })
+                predictions.append(
+                    {
+                        "id": qa["id"],
+                        "question": qa["question"],
+                        "answer": result.answer,
+                        "contexts": result.contexts,
+                        "reference_answer": qa["reference_answer"],
+                        "reference_contexts": qa["reference_contexts"],
+                        "strategy": strategy.name,
+                        "latency_ms": round(result.latency_ms, 2),
+                        "cost_usd": round(result.cost_usd, 6),
+                        "prompt_tokens": result.prompt_tokens,
+                        "completion_tokens": result.completion_tokens,
+                        "metadata": result.metadata,
+                    }
+                )
 
             except Exception as exc:
                 errors += 1
                 # Log the error but keep going — don't abort a 500-question run
                 # because one query failed (e.g. rate limit, timeout)
-                predictions.append({
-                    "id": qa["id"],
-                    "question": qa["question"],
-                    "answer": "",
-                    "contexts": [],
-                    "reference_answer": qa["reference_answer"],
-                    "reference_contexts": qa["reference_contexts"],
-                    "strategy": strategy.name,
-                    "latency_ms": 0.0,
-                    "cost_usd": 0.0,
-                    "prompt_tokens": 0,
-                    "completion_tokens": 0,
-                    "metadata": {"error": str(exc)},
-                })
+                predictions.append(
+                    {
+                        "id": qa["id"],
+                        "question": qa["question"],
+                        "answer": "",
+                        "contexts": [],
+                        "reference_answer": qa["reference_answer"],
+                        "reference_contexts": qa["reference_contexts"],
+                        "strategy": strategy.name,
+                        "latency_ms": 0.0,
+                        "cost_usd": 0.0,
+                        "prompt_tokens": 0,
+                        "completion_tokens": 0,
+                        "metadata": {"error": str(exc)},
+                    }
+                )
 
             progress.advance(task)
 

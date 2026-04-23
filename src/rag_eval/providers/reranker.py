@@ -7,10 +7,11 @@ Returns a callable that takes (query, documents, top_n) and returns a list of
 Only Cohere is supported today; the interface is kept provider-agnostic so a
 cross-encoder reranker (e.g. via sentence-transformers) can be added later.
 """
+
 from __future__ import annotations
 
 import os
-from typing import Callable
+from collections.abc import Callable
 
 from rag_eval.config import RerankerConfig
 
@@ -43,17 +44,14 @@ def get_reranker(cfg: RerankerConfig) -> Reranker:
     if cfg.provider == "cohere":
         return _build_cohere_reranker(cfg.model)
 
-    raise ValueError(
-        f"Unknown reranker provider: '{cfg.provider}'. "
-        "Supported: ['cohere']"
-    )
+    raise ValueError(f"Unknown reranker provider: '{cfg.provider}'. Supported: ['cohere']")
 
 
 def _build_cohere_reranker(model: str) -> Reranker:
     """Build a Cohere reranker callable (requires COHERE_API_KEY)."""
     api_key = os.environ.get("COHERE_API_KEY")
     if not api_key:
-        raise EnvironmentError(
+        raise OSError(
             "COHERE_API_KEY environment variable is not set.\n"
             "Add COHERE_API_KEY=<your-key> to your .env file.\n"
             "Free keys available at https://cohere.com (10M tokens/month)"
@@ -62,10 +60,7 @@ def _build_cohere_reranker(model: str) -> Reranker:
     try:
         import cohere
     except ImportError as exc:
-        raise ImportError(
-            "cohere package is not installed.\n"
-            "Run: uv add cohere"
-        ) from exc
+        raise ImportError("cohere package is not installed.\nRun: uv add cohere") from exc
 
     # cohere >= 5.0 uses ClientV2
     client = cohere.ClientV2(api_key=api_key)

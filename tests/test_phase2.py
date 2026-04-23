@@ -4,16 +4,14 @@ Phase 2 tests — telemetry, strategy base, NaiveRAG, runner.
 All tests use mocked LLM responses and a tiny fake index so no API
 keys or network access are required. Safe to run in CI.
 """
+
 from __future__ import annotations
 
 import json
-import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import numpy as np
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -38,10 +36,10 @@ FAKE_QA_PAIRS = [
 @pytest.fixture
 def built_index(tmp_path):
     """Build a small real FAISS + BM25 index into tmp_path."""
-    from rag_eval.chunker import chunk_corpus
-    from rag_eval.config import Config, RetrievalConfig
-    from rag_eval.indexer import build_index, RAGIndex
     import rag_eval.indexer as idx_mod
+    from rag_eval.chunker import chunk_corpus
+    from rag_eval.config import Config
+    from rag_eval.indexer import RAGIndex, build_index
 
     # Redirect index dir to tmp_path
     idx_mod.INDEX_DIR = tmp_path
@@ -57,7 +55,6 @@ def built_index(tmp_path):
     yield index
 
     # Restore defaults
-    from rag_eval.indexer import INDEX_DIR
     idx_mod.INDEX_DIR = Path("data/index")
     idx_mod.FAISS_PATH = idx_mod.INDEX_DIR / "faiss.index"
     idx_mod.CHUNKS_PATH = idx_mod.INDEX_DIR / "chunks.json"
@@ -68,38 +65,41 @@ def built_index(tmp_path):
 # Telemetry tests
 # ---------------------------------------------------------------------------
 
-class TestTelemetry:
 
+class TestTelemetry:
     def test_token_count_nonzero(self):
         from rag_eval.telemetry import count_tokens
+
         assert count_tokens("Hello world this is a test") > 0
 
     def test_price_lookup_groq(self):
         from rag_eval.telemetry import _lookup_price
-        input_p, output_p = _lookup_price(
-            "groq", "meta-llama/llama-4-scout-17b-16e-instruct"
-        )
+
+        input_p, output_p = _lookup_price("groq", "meta-llama/llama-4-scout-17b-16e-instruct")
         assert input_p > 0
         assert output_p > 0
 
     def test_price_lookup_unknown_is_zero(self):
         from rag_eval.telemetry import _lookup_price
+
         input_p, output_p = _lookup_price("ollama", "some-local-model")
         assert input_p == 0.0
         assert output_p == 0.0
 
     def test_tracker_summary(self):
-        from rag_eval.telemetry import TelemetryTracker, QueryRecord
+        from rag_eval.telemetry import QueryRecord, TelemetryTracker
 
         tracker = TelemetryTracker(strategy="naive")
         for i in range(10):
-            tracker.add(QueryRecord(
-                strategy="naive",
-                latency_ms=float(100 + i * 10),
-                prompt_tokens=500,
-                completion_tokens=50,
-                cost_usd=0.0001,
-            ))
+            tracker.add(
+                QueryRecord(
+                    strategy="naive",
+                    latency_ms=float(100 + i * 10),
+                    prompt_tokens=500,
+                    completion_tokens=50,
+                    cost_usd=0.0001,
+                )
+            )
 
         summary = tracker.summary()
         assert summary["n_queries"] == 10
@@ -109,6 +109,7 @@ class TestTelemetry:
 
     def test_empty_tracker_returns_empty_summary(self):
         from rag_eval.telemetry import TelemetryTracker
+
         tracker = TelemetryTracker(strategy="naive")
         assert tracker.summary() == {}
 
@@ -117,10 +118,11 @@ class TestTelemetry:
 # Strategy base tests
 # ---------------------------------------------------------------------------
 
-class TestStrategyBase:
 
+class TestStrategyBase:
     def test_build_rag_prompt_contains_question_and_contexts(self):
         from rag_eval.strategies.base import build_rag_prompt
+
         prompt = build_rag_prompt(
             "What is alpha?",
             ["Alpha is the first letter.", "More info here."],
@@ -132,6 +134,7 @@ class TestStrategyBase:
 
     def test_build_messages_returns_list(self):
         from rag_eval.strategies.base import build_messages
+
         messages = build_messages("Test question?", ["Context A", "Context B"])
         assert len(messages) == 2
         assert messages[0].__class__.__name__ == "SystemMessage"
@@ -139,12 +142,13 @@ class TestStrategyBase:
 
     def test_strategy_registry_has_naive(self):
         from rag_eval.strategies import STRATEGY_REGISTRY
+
         assert "naive" in STRATEGY_REGISTRY
 
     def test_get_strategy_raises_for_unknown(self):
         """Requesting a strategy name that does not exist raises ValueError."""
-        from rag_eval.strategies import get_strategy
         from rag_eval.config import Config
+        from rag_eval.strategies import get_strategy
 
         with pytest.raises(ValueError):
             get_strategy("totally_unknown_strategy", Config(), MagicMock())
@@ -154,13 +158,14 @@ class TestStrategyBase:
 # NaiveRAG tests (LLM is mocked — no API calls)
 # ---------------------------------------------------------------------------
 
-class TestNaiveRAG:
 
+class TestNaiveRAG:
     def test_naive_rag_returns_result(self, built_index):
         """NaiveRAG.answer() returns a populated RAGResult."""
         import os
-        from rag_eval.strategies.naive import NaiveRAG
+
         from rag_eval.config import Config
+        from rag_eval.strategies.naive import NaiveRAG
 
         cfg = Config()
         mock_response = MagicMock()
@@ -184,8 +189,9 @@ class TestNaiveRAG:
 
     def test_naive_rag_retrieves_correct_top_k(self, built_index):
         import os
-        from rag_eval.strategies.naive import NaiveRAG
+
         from rag_eval.config import Config, RetrievalConfig
+        from rag_eval.strategies.naive import NaiveRAG
 
         cfg = Config()
         cfg = cfg.model_copy(update={"retrieval": RetrievalConfig(top_k=2)})
@@ -205,13 +211,14 @@ class TestNaiveRAG:
 # Runner tests
 # ---------------------------------------------------------------------------
 
-class TestRunner:
 
+class TestRunner:
     def test_runner_writes_jsonl(self, built_index, tmp_path):
         import os
+
+        from rag_eval.config import Config
         from rag_eval.runner import run_strategy
         from rag_eval.strategies.naive import NaiveRAG
-        from rag_eval.config import Config
 
         cfg = Config()
         with patch.dict(os.environ, {"GROQ_API_KEY": "dummy-key-for-testing"}):
@@ -239,9 +246,10 @@ class TestRunner:
     def test_runner_handles_errors_gracefully(self, built_index, tmp_path):
         """Runner logs errors per-query but completes the full run."""
         import os
+
+        from rag_eval.config import Config
         from rag_eval.runner import run_strategy
         from rag_eval.strategies.naive import NaiveRAG
-        from rag_eval.config import Config
 
         cfg = Config()
         with patch.dict(os.environ, {"GROQ_API_KEY": "dummy-key-for-testing"}):

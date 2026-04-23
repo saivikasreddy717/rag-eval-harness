@@ -25,6 +25,7 @@ Tradeoffs:
 Reference: Inspired by LangChain's MultiQueryRetriever and the
   "Query Expansion" approach from Ma et al. (2023).
 """
+
 from __future__ import annotations
 
 import time
@@ -107,9 +108,7 @@ class MultiQueryRAG(BaseStrategy):
         contexts = [h["text"] for h in merged_hits[:top_k]]
 
         # Step 4: generate answer from merged context
-        answer, prompt_tokens, completion_tokens, _, rag_cost = self.generate(
-            question, contexts
-        )
+        answer, prompt_tokens, completion_tokens, _, rag_cost = self.generate(question, contexts)
 
         total_latency_ms = (time.perf_counter() - t0) * 1000
         total_cost_usd = exp_cost + rag_cost

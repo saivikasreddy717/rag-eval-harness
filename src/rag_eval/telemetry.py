@@ -8,12 +8,13 @@ Price table uses public list prices as of 2025. Override by setting
 custom prices in your config if needed. Providers with no API cost
 (ollama, local embeddings) are assigned $0.
 """
+
 from __future__ import annotations
 
 import time
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Generator
 
 import tiktoken
 
@@ -38,7 +39,7 @@ _PRICE_TABLE: dict[tuple[str, str], tuple[float, float]] = {
     ("anthropic", "claude-haiku"): (0.25, 1.25),
     ("anthropic", "claude-sonnet"): (3.00, 15.00),
     # Google
-    ("google", "gemini-2.0-flash"): (0.0, 0.0),   # free tier
+    ("google", "gemini-2.0-flash"): (0.0, 0.0),  # free tier
     ("google", "gemini-1.5-flash"): (0.075, 0.30),
     # Ollama — fully local, no cost
     ("ollama", ""): (0.0, 0.0),
@@ -52,7 +53,7 @@ def _lookup_price(provider: str, model: str) -> tuple[float, float]:
     for (p, m_prefix), prices in _PRICE_TABLE.items():
         if p == provider and model.startswith(m_prefix):
             return prices
-    return (0.0, 0.0)   # unknown provider/model: assume free (e.g. ollama)
+    return (0.0, 0.0)  # unknown provider/model: assume free (e.g. ollama)
 
 
 def _count_tokens(text: str) -> int:
@@ -69,9 +70,11 @@ def _count_tokens(text: str) -> int:
 # Per-query record
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class QueryRecord:
     """Telemetry for a single RAG query."""
+
     strategy: str
     latency_ms: float = 0.0
     prompt_tokens: int = 0
@@ -87,9 +90,11 @@ class QueryRecord:
 # Tracker — accumulates records, computes aggregates
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class TelemetryTracker:
     """Accumulates QueryRecords for a single strategy run."""
+
     strategy: str
     records: list[QueryRecord] = field(default_factory=list)
 
@@ -121,6 +126,7 @@ class TelemetryTracker:
 # ---------------------------------------------------------------------------
 # Context manager for timing a block + estimating cost
 # ---------------------------------------------------------------------------
+
 
 @contextmanager
 def timed_llm_call(

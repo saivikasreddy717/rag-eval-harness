@@ -4,11 +4,13 @@ without making any API calls or requiring API keys.
 
 These run in CI on every push.
 """
+
 from __future__ import annotations
+
+from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-from pathlib import Path
 
 
 class TestConfigLoading:
@@ -72,15 +74,17 @@ class TestProviderImports:
 
     def test_llm_factory_importable(self):
         from rag_eval.providers.llm import get_llm
+
         assert callable(get_llm)
 
     def test_embeddings_factory_importable(self):
         from rag_eval.providers.embeddings import get_embeddings
+
         assert callable(get_embeddings)
 
     def test_invalid_llm_provider_raises(self):
-        from rag_eval.providers.llm import get_llm
         from rag_eval.config import LLMConfig
+        from rag_eval.providers.llm import get_llm
 
         # We need to bypass config validation to test the factory directly
         cfg = LLMConfig.model_construct(
@@ -93,8 +97,8 @@ class TestProviderImports:
             get_llm(cfg)
 
     def test_invalid_embeddings_provider_raises(self):
-        from rag_eval.providers.embeddings import get_embeddings
         from rag_eval.config import EmbeddingsConfig
+        from rag_eval.providers.embeddings import get_embeddings
 
         cfg = EmbeddingsConfig.model_construct(
             provider="invalid",
@@ -151,14 +155,18 @@ class TestCLI:
 
     def test_eval_requires_predictions(self):
         """eval is implemented — exits 1 with a helpful message when predictions are absent."""
-        import tempfile, textwrap
+        import tempfile
+        import textwrap
+
         from click.testing import CliRunner
+
         from rag_eval.cli import main
 
         with tempfile.TemporaryDirectory() as tmp:
             config_yaml = f"{tmp}/cfg.yaml"
             with open(config_yaml, "w") as f:
-                f.write(textwrap.dedent(f"""\
+                f.write(
+                    textwrap.dedent(f"""\
                     generator:
                       provider: groq
                       model: meta-llama/llama-4-scout-17b-16e-instruct
@@ -171,8 +179,9 @@ class TestCLI:
                     strategies:
                       - naive
                     output:
-                      dir: "{tmp.replace(chr(92), '/')}"
-                """))
+                      dir: "{tmp.replace(chr(92), "/")}"
+                """)
+                )
             runner = CliRunner()
             result = runner.invoke(main, ["--config", config_yaml, "eval"])
             assert result.exit_code == 1
@@ -186,6 +195,7 @@ class TestCLI:
         # When index exists it prints a message and exits 0.
         # When it doesn't exist it tries to download — skip that path in smoke tests.
         from rag_eval.indexer import index_exists
+
         if index_exists():
             result = runner.invoke(main, ["index"])
             assert result.exit_code == 0

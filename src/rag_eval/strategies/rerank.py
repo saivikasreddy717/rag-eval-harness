@@ -21,9 +21,8 @@ Requirements:
   COHERE_API_KEY environment variable must be set.
   Free tier: 10M tokens/month — enough for full HotpotQA evaluation.
 """
-from __future__ import annotations
 
-import os
+from __future__ import annotations
 
 from rag_eval.config import Config
 from rag_eval.indexer import RAGIndex
@@ -50,7 +49,7 @@ class RerankRAG(BaseStrategy):
 
     def answer(self, question: str) -> RAGResult:
         top_k = self.cfg.retrieval.top_k
-        candidate_k = self.cfg.retrieval.top_k_rerank   # wider net (default 20)
+        candidate_k = self.cfg.retrieval.top_k_rerank  # wider net (default 20)
 
         # Step 1: dense retrieval — more candidates than we'll return
         query_embedding = self.embed_query(question)

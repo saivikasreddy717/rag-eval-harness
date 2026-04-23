@@ -7,6 +7,7 @@ Splits corpus passages into overlapping chunks sized by token count
 Uses tiktoken cl100k_base (same tokenizer as GPT-4 / text-embedding-3)
 as the length function so chunk_size in config maps directly to LLM tokens.
 """
+
 from __future__ import annotations
 
 from typing import TypedDict
@@ -19,10 +20,10 @@ from rag_eval.datasets import Passage
 
 
 class Chunk(TypedDict):
-    chunk_id: str          # globally unique: "{passage_id}__chunk_{n}"
+    chunk_id: str  # globally unique: "{passage_id}__chunk_{n}"
     text: str
-    passage_id: str        # which passage this came from
-    chunk_index: int       # position within the passage (0-based)
+    passage_id: str  # which passage this came from
+    chunk_index: int  # position within the passage (0-based)
 
 
 def chunk_corpus(corpus: list[Passage], config: RetrievalConfig) -> list[Chunk]:

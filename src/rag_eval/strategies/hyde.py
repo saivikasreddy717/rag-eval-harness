@@ -27,6 +27,7 @@ Tradeoffs:
 Reference: Gao et al. (2022) "Precise Zero-Shot Dense Retrieval without
   Relevance Labels." https://arxiv.org/abs/2212.10496
 """
+
 from __future__ import annotations
 
 import time
@@ -68,9 +69,7 @@ class HyDERAG(BaseStrategy):
         contexts = [h["text"] for h in hits]
 
         # Step 4: generate the real answer from retrieved contexts
-        answer, prompt_tokens, completion_tokens, _, rag_cost = self.generate(
-            question, contexts
-        )
+        answer, prompt_tokens, completion_tokens, _, rag_cost = self.generate(question, contexts)
 
         total_latency_ms = (time.perf_counter() - t0) * 1000
         total_cost_usd = hyp_cost + rag_cost
@@ -86,7 +85,7 @@ class HyDERAG(BaseStrategy):
             completion_tokens=completion_tokens,
             metadata={
                 "strategy": self.name,
-                "hypothetical_doc": hyp_doc[:200],   # truncated for logging
+                "hypothetical_doc": hyp_doc[:200],  # truncated for logging
                 "hyp_prompt_tokens": hyp_pt,
                 "hyp_completion_tokens": hyp_ct,
                 "num_hits": len(hits),

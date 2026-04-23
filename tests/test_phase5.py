@@ -4,6 +4,7 @@ Phase 5 tests — comparison report (reporter.py) and CLI compare command.
 All tests are self-contained: scorecard CSVs are written into tmp_path
 so no real evaluation run is required. Safe to run in CI.
 """
+
 from __future__ import annotations
 
 import textwrap
@@ -11,7 +12,6 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers — create fake scorecard CSVs
@@ -26,10 +26,10 @@ _METRICS = [
 ]
 
 _STRATEGY_SCORES = {
-    "naive":       [0.82, 0.80, 0.75, 0.78, 0.70],
-    "hybrid":      [0.87, 0.85, 0.80, 0.83, 0.76],
-    "rerank":      [0.90, 0.88, 0.84, 0.86, 0.80],
-    "hyde":        [0.85, 0.83, 0.78, 0.81, 0.74],
+    "naive": [0.82, 0.80, 0.75, 0.78, 0.70],
+    "hybrid": [0.87, 0.85, 0.80, 0.83, 0.76],
+    "rerank": [0.90, 0.88, 0.84, 0.86, 0.80],
+    "hyde": [0.85, 0.83, 0.78, 0.81, 0.74],
     "multi_query": [0.86, 0.84, 0.79, 0.82, 0.75],
 }
 
@@ -48,7 +48,7 @@ def _make_scorecard(
     for i in range(n_questions):
         row = {"strategy": strategy, "question_id": f"q{i}"}
         for m, base in zip(_METRICS, scores):
-            row[m] = round(base + (i - 1) * 0.01, 4)   # tiny variation per row
+            row[m] = round(base + (i - 1) * 0.01, 4)  # tiny variation per row
         row["latency_ms"] = 300.0 + i * 20
         row["cost_usd"] = 0.00012
         row["prompt_tokens"] = 250 + i
@@ -72,8 +72,8 @@ def _make_scorecard(
 # reporter.load_scorecards
 # ---------------------------------------------------------------------------
 
-class TestLoadScorecards:
 
+class TestLoadScorecards:
     def test_loads_single_scorecard(self, tmp_path):
         from rag_eval.reporter import load_scorecards
 
@@ -111,17 +111,17 @@ class TestLoadScorecards:
             _make_scorecard(tmp_path, s, n_questions=3)
 
         df = load_scorecards(tmp_path)
-        assert len(df) == 8   # 2 strategies × (3 + 1)
+        assert len(df) == 8  # 2 strategies × (3 + 1)
 
 
 # ---------------------------------------------------------------------------
 # reporter.build_comparison_matrix
 # ---------------------------------------------------------------------------
 
-class TestBuildComparisonMatrix:
 
+class TestBuildComparisonMatrix:
     def test_matrix_has_one_row_per_strategy(self, tmp_path):
-        from rag_eval.reporter import load_scorecards, build_comparison_matrix
+        from rag_eval.reporter import build_comparison_matrix, load_scorecards
 
         for s in ["naive", "hybrid", "rerank"]:
             _make_scorecard(tmp_path, s)
@@ -132,7 +132,7 @@ class TestBuildComparisonMatrix:
         assert len(matrix) == 3
 
     def test_matrix_has_all_metric_columns(self, tmp_path):
-        from rag_eval.reporter import load_scorecards, build_comparison_matrix
+        from rag_eval.reporter import build_comparison_matrix, load_scorecards
 
         _make_scorecard(tmp_path, "naive")
         combined = load_scorecards(tmp_path)
@@ -143,7 +143,7 @@ class TestBuildComparisonMatrix:
 
     def test_matrix_scores_match_aggregate_row(self, tmp_path):
         """Values in the matrix must equal the AGGREGATE row from the scorecard."""
-        from rag_eval.reporter import load_scorecards, build_comparison_matrix
+        from rag_eval.reporter import build_comparison_matrix, load_scorecards
 
         _make_scorecard(tmp_path, "naive")
         combined = load_scorecards(tmp_path)
@@ -161,9 +161,9 @@ class TestBuildComparisonMatrix:
         assert faith_matrix == pytest.approx(faith_agg, rel=1e-4)
 
     def test_matrix_is_sorted_by_strategy(self, tmp_path):
-        from rag_eval.reporter import load_scorecards, build_comparison_matrix
+        from rag_eval.reporter import build_comparison_matrix, load_scorecards
 
-        for s in ["rerank", "naive", "hybrid"]:   # intentionally unsorted
+        for s in ["rerank", "naive", "hybrid"]:  # intentionally unsorted
             _make_scorecard(tmp_path, s)
 
         combined = load_scorecards(tmp_path)
@@ -177,10 +177,11 @@ class TestBuildComparisonMatrix:
 # reporter._make_metrics_bar / _make_radar / _make_latency_bar / _make_cost_scatter
 # ---------------------------------------------------------------------------
 
-class TestChartBuilders:
 
+class TestChartBuilders:
     def _matrix(self, tmp_path, strategies=("naive", "hybrid")):
-        from rag_eval.reporter import load_scorecards, build_comparison_matrix
+        from rag_eval.reporter import build_comparison_matrix, load_scorecards
+
         for s in strategies:
             _make_scorecard(tmp_path, s)
         combined = load_scorecards(tmp_path)
@@ -188,13 +189,15 @@ class TestChartBuilders:
 
     def test_metrics_bar_returns_figure(self, tmp_path):
         from rag_eval.reporter import _make_metrics_bar
+
         matrix = self._matrix(tmp_path)
         fig = _make_metrics_bar(matrix)
         assert fig is not None
-        assert fig.data   # has traces
+        assert fig.data  # has traces
 
     def test_radar_returns_figure(self, tmp_path):
         from rag_eval.reporter import _make_radar
+
         matrix = self._matrix(tmp_path)
         fig = _make_radar(matrix)
         assert fig is not None
@@ -202,28 +205,34 @@ class TestChartBuilders:
 
     def test_latency_bar_returns_figure(self, tmp_path):
         from rag_eval.reporter import _make_latency_bar
+
         matrix = self._matrix(tmp_path)
         fig = _make_latency_bar(matrix)
         assert fig is not None
 
     def test_cost_scatter_returns_figure(self, tmp_path):
         from rag_eval.reporter import _make_cost_scatter
+
         matrix = self._matrix(tmp_path)
         fig = _make_cost_scatter(matrix)
         assert fig is not None
 
     def test_latency_bar_returns_none_without_column(self, tmp_path):
         from rag_eval.reporter import _make_latency_bar
+
         # Matrix without latency_ms column
-        matrix = pd.DataFrame({
-            "strategy": ["naive"],
-            "faithfulness": [0.8],
-        })
+        matrix = pd.DataFrame(
+            {
+                "strategy": ["naive"],
+                "faithfulness": [0.8],
+            }
+        )
         result = _make_latency_bar(matrix)
         assert result is None
 
     def test_metrics_bar_has_one_trace_per_strategy(self, tmp_path):
         from rag_eval.reporter import _make_metrics_bar
+
         matrix = self._matrix(tmp_path, strategies=("naive", "hybrid", "rerank"))
         fig = _make_metrics_bar(matrix)
         assert len(fig.data) == 3
@@ -233,10 +242,10 @@ class TestChartBuilders:
 # reporter.generate_html_report
 # ---------------------------------------------------------------------------
 
-class TestGenerateHtmlReport:
 
+class TestGenerateHtmlReport:
     def test_html_file_is_created(self, tmp_path):
-        from rag_eval.reporter import load_scorecards, build_comparison_matrix, generate_html_report
+        from rag_eval.reporter import build_comparison_matrix, generate_html_report, load_scorecards
 
         for s in ["naive", "hybrid"]:
             _make_scorecard(tmp_path, s)
@@ -248,10 +257,10 @@ class TestGenerateHtmlReport:
         generate_html_report(matrix, output_file)
 
         assert output_file.exists()
-        assert output_file.stat().st_size > 5_000   # non-trivial file
+        assert output_file.stat().st_size > 5_000  # non-trivial file
 
     def test_html_contains_strategy_names(self, tmp_path):
-        from rag_eval.reporter import load_scorecards, build_comparison_matrix, generate_html_report
+        from rag_eval.reporter import build_comparison_matrix, generate_html_report, load_scorecards
 
         for s in ["naive", "hybrid"]:
             _make_scorecard(tmp_path, s)
@@ -266,7 +275,7 @@ class TestGenerateHtmlReport:
         assert "hybrid" in html
 
     def test_html_contains_plotly(self, tmp_path):
-        from rag_eval.reporter import load_scorecards, build_comparison_matrix, generate_html_report
+        from rag_eval.reporter import build_comparison_matrix, generate_html_report, load_scorecards
 
         _make_scorecard(tmp_path, "naive")
         combined = load_scorecards(tmp_path)
@@ -279,7 +288,7 @@ class TestGenerateHtmlReport:
         assert "plotly" in html.lower()
 
     def test_html_contains_summary_table(self, tmp_path):
-        from rag_eval.reporter import load_scorecards, build_comparison_matrix, generate_html_report
+        from rag_eval.reporter import build_comparison_matrix, generate_html_report, load_scorecards
 
         _make_scorecard(tmp_path, "naive")
         combined = load_scorecards(tmp_path)
@@ -296,8 +305,8 @@ class TestGenerateHtmlReport:
 # reporter.compare_strategies  (end-to-end)
 # ---------------------------------------------------------------------------
 
-class TestCompareStrategies:
 
+class TestCompareStrategies:
     def test_compare_writes_results_csv_and_report(self, tmp_path):
         from rag_eval.config import Config, OutputConfig
         from rag_eval.reporter import compare_strategies
@@ -348,11 +357,11 @@ class TestCompareStrategies:
 # CLI compare command
 # ---------------------------------------------------------------------------
 
-class TestCompareCLI:
 
+class TestCompareCLI:
     def test_compare_command_succeeds(self, tmp_path):
-        import textwrap
         from click.testing import CliRunner
+
         from rag_eval.cli import main
 
         for s in ["naive", "hybrid"]:
@@ -374,7 +383,7 @@ class TestCompareCLI:
                   - naive
                   - hybrid
                 output:
-                  dir: "{str(tmp_path).replace(chr(92), '/')}"
+                  dir: "{str(tmp_path).replace(chr(92), "/")}"
             """),
             encoding="utf-8",
         )
@@ -391,8 +400,8 @@ class TestCompareCLI:
         assert (tmp_path / "report.html").exists()
 
     def test_compare_command_exits_1_with_no_scorecards(self, tmp_path):
-        import textwrap
         from click.testing import CliRunner
+
         from rag_eval.cli import main
 
         config_yaml = tmp_path / "cfg.yaml"
@@ -410,7 +419,7 @@ class TestCompareCLI:
                 strategies:
                   - naive
                 output:
-                  dir: "{str(tmp_path).replace(chr(92), '/')}"
+                  dir: "{str(tmp_path).replace(chr(92), "/")}"
             """),
             encoding="utf-8",
         )
@@ -424,8 +433,8 @@ class TestCompareCLI:
         assert result.exit_code == 1
 
     def test_compare_output_mentions_report_html(self, tmp_path):
-        import textwrap
         from click.testing import CliRunner
+
         from rag_eval.cli import main
 
         for s in ["naive"]:
@@ -446,7 +455,7 @@ class TestCompareCLI:
                 strategies:
                   - naive
                 output:
-                  dir: "{str(tmp_path).replace(chr(92), '/')}"
+                  dir: "{str(tmp_path).replace(chr(92), "/")}"
             """),
             encoding="utf-8",
         )
@@ -466,12 +475,13 @@ class TestCompareCLI:
 # Smoke test: update placeholder check for compare command
 # ---------------------------------------------------------------------------
 
+
 class TestSmokeCompareNoLongerPlaceholder:
     """compare is now implemented; make sure the old placeholder is gone."""
 
     def test_compare_is_not_a_placeholder(self, tmp_path):
-        import textwrap
         from click.testing import CliRunner
+
         from rag_eval.cli import main
 
         # Without scorecards compare should exit 1 (real error), not 0 (placeholder)
@@ -490,7 +500,7 @@ class TestSmokeCompareNoLongerPlaceholder:
                 strategies:
                   - naive
                 output:
-                  dir: "{str(tmp_path).replace(chr(92), '/')}"
+                  dir: "{str(tmp_path).replace(chr(92), "/")}"
             """),
             encoding="utf-8",
         )

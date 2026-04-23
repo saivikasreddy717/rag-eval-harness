@@ -30,6 +30,7 @@ google      Google Generative AI Embeddings
             Install extra: uv sync --extra google
             Env: GOOGLE_API_KEY
 """
+
 from __future__ import annotations
 
 from langchain_core.embeddings import Embeddings
@@ -79,8 +80,7 @@ def get_embeddings(config: EmbeddingsConfig) -> Embeddings:
             from langchain_openai import OpenAIEmbeddings
         except ImportError:
             raise ImportError(
-                "langchain-openai is not installed.\n"
-                "Install with: uv sync --extra openai"
+                "langchain-openai is not installed.\nInstall with: uv sync --extra openai"
             )
         return OpenAIEmbeddings(model=config.model)
 
@@ -101,8 +101,7 @@ def get_embeddings(config: EmbeddingsConfig) -> Embeddings:
             from langchain_ollama import OllamaEmbeddings
         except ImportError:
             raise ImportError(
-                "langchain-ollama is not installed.\n"
-                "Install with: uv sync --extra ollama"
+                "langchain-ollama is not installed.\nInstall with: uv sync --extra ollama"
             )
         return OllamaEmbeddings(model=config.model)
 
@@ -112,8 +111,7 @@ def get_embeddings(config: EmbeddingsConfig) -> Embeddings:
             from langchain_google_genai import GoogleGenerativeAIEmbeddings
         except ImportError:
             raise ImportError(
-                "langchain-google-genai is not installed.\n"
-                "Install with: uv sync --extra google"
+                "langchain-google-genai is not installed.\nInstall with: uv sync --extra google"
             )
         return GoogleGenerativeAIEmbeddings(model=config.model)
 

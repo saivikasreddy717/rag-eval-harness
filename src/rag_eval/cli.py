@@ -10,11 +10,11 @@ Usage:
     python -m rag_eval eval
     python -m rag_eval compare
 """
+
 from __future__ import annotations
 
 import click
 from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
 
 console = Console()
@@ -22,7 +22,8 @@ console = Console()
 
 @click.group()
 @click.option(
-    "--config", "-c",
+    "--config",
+    "-c",
     default="configs/groq_llama4.yaml",
     show_default=True,
     help="Path to config YAML. See configs/ for available presets.",
@@ -52,6 +53,7 @@ def main(ctx: click.Context, config: str) -> None:
 def info(ctx: click.Context) -> None:
     """Show loaded config: providers, models, dataset, strategies."""
     from dotenv import load_dotenv
+
     from rag_eval.config import load_config
 
     load_dotenv()
@@ -86,10 +88,7 @@ def info(ctx: click.Context) -> None:
         f"overlap=[cyan]{cfg.retrieval.chunk_overlap}[/], "
         f"top_k=[cyan]{cfg.retrieval.top_k}[/]"
     )
-    console.print(
-        f"Strategies: [cyan]{', '.join(cfg.strategies)}[/] "
-        f"({len(cfg.strategies)} total)"
-    )
+    console.print(f"Strategies: [cyan]{', '.join(cfg.strategies)}[/] ({len(cfg.strategies)} total)")
     console.print(f"Output  : [cyan]{cfg.output.dir}/[/]")
 
 
@@ -98,25 +97,26 @@ def info(ctx: click.Context) -> None:
 # Each prints a helpful message rather than silently doing nothing.
 # ---------------------------------------------------------------------------
 
+
 @main.command()
 @click.option("--rebuild", is_flag=True, default=False, help="Force rebuild even if index exists.")
 @click.pass_context
 def index(ctx: click.Context, rebuild: bool) -> None:
     """Build FAISS + BM25 index from dataset chunks."""
     from dotenv import load_dotenv
+
     load_dotenv()
 
+    from rag_eval.chunker import chunk_corpus, chunk_stats
     from rag_eval.config import load_config
     from rag_eval.datasets import load_hotpotqa
-    from rag_eval.chunker import chunk_corpus, chunk_stats
     from rag_eval.indexer import build_index, index_exists
 
     cfg = load_config(ctx.obj["config_path"])
 
     if index_exists() and not rebuild:
         console.print(
-            "[green]Index already exists.[/] "
-            "Use [bold]--rebuild[/] to force a fresh build."
+            "[green]Index already exists.[/] Use [bold]--rebuild[/] to force a fresh build."
         )
         return
 
@@ -149,7 +149,8 @@ def index(ctx: click.Context, rebuild: bool) -> None:
 
 @main.command()
 @click.option(
-    "--strategy", "-s",
+    "--strategy",
+    "-s",
     multiple=True,
     help="Strategy to run. Repeat for multiple. Default: all strategies in config.",
 )
@@ -157,21 +158,21 @@ def index(ctx: click.Context, rebuild: bool) -> None:
 def run(ctx: click.Context, strategy: tuple[str, ...]) -> None:
     """Run RAG strategies over the dataset and collect predictions."""
     from dotenv import load_dotenv
+
     load_dotenv()
 
     from pathlib import Path
+
     from rag_eval.config import load_config
     from rag_eval.datasets import load_hotpotqa
     from rag_eval.indexer import RAGIndex, index_exists
     from rag_eval.runner import run_strategy
-    from rag_eval.strategies import get_strategy, STRATEGY_REGISTRY
+    from rag_eval.strategies import STRATEGY_REGISTRY, get_strategy
 
     cfg = load_config(ctx.obj["config_path"])
 
     if not index_exists():
-        console.print(
-            "[red]No index found.[/] Run [bold]python -m rag_eval index[/] first."
-        )
+        console.print("[red]No index found.[/] Run [bold]python -m rag_eval index[/] first.")
         raise SystemExit(1)
 
     # Resolve which strategies to run
@@ -179,8 +180,7 @@ def run(ctx: click.Context, strategy: tuple[str, ...]) -> None:
     not_implemented = [s for s in strategies_to_run if s not in STRATEGY_REGISTRY]
     if not_implemented:
         console.print(
-            f"[yellow]Skipping not-yet-implemented strategies:[/] "
-            f"{', '.join(not_implemented)}"
+            f"[yellow]Skipping not-yet-implemented strategies:[/] {', '.join(not_implemented)}"
         )
         strategies_to_run = [s for s in strategies_to_run if s in STRATEGY_REGISTRY]
 
@@ -215,12 +215,14 @@ def run(ctx: click.Context, strategy: tuple[str, ...]) -> None:
 
 @main.command("eval")
 @click.option(
-    "--strategy", "-s",
+    "--strategy",
+    "-s",
     multiple=True,
     help="Strategy to evaluate. Repeat for multiple. Default: all strategies in config.",
 )
 @click.option(
-    "--max-questions", "-n",
+    "--max-questions",
+    "-n",
     default=None,
     type=int,
     show_default=True,
@@ -233,9 +235,11 @@ def run(ctx: click.Context, strategy: tuple[str, ...]) -> None:
 def eval_cmd(ctx: click.Context, strategy: tuple[str, ...], max_questions: int | None) -> None:
     """Score predictions with RAGAS (faithfulness, relevancy, precision, recall, correctness)."""
     from dotenv import load_dotenv
+
     load_dotenv()
 
     from pathlib import Path
+
     from rag_eval.config import load_config
     from rag_eval.evaluator import evaluate_predictions
 
@@ -291,6 +295,7 @@ def eval_cmd(ctx: click.Context, strategy: tuple[str, ...], max_questions: int |
 def compare(ctx: click.Context) -> None:
     """Load all scorecards, build comparison matrix, and generate results.csv + report.html."""
     from dotenv import load_dotenv
+
     load_dotenv()
 
     from rag_eval.config import load_config

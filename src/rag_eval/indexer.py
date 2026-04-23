@@ -9,6 +9,7 @@ Artifacts written to data/index/:
 BM25 is rebuilt from chunks.json on each load (rank-bm25 objects
 are not serialisable, and rebuilding from 10-15K chunks is instantaneous).
 """
+
 from __future__ import annotations
 
 import json
@@ -42,6 +43,7 @@ META_PATH = INDEX_DIR / "index_meta.json"
 # ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
+
 
 def index_exists() -> bool:
     """Return True if a built index is present on disk."""
@@ -94,7 +96,7 @@ def build_index(chunks: list[Chunk], cfg: Config) -> None:
     faiss.normalize_L2(vectors)
 
     dim = vectors.shape[1]
-    index = faiss.IndexFlatIP(dim)   # inner product on unit vectors = cosine similarity
+    index = faiss.IndexFlatIP(dim)  # inner product on unit vectors = cosine similarity
     index.add(vectors)
 
     # Persist
@@ -119,12 +121,13 @@ def build_index(chunks: list[Chunk], cfg: Config) -> None:
     }
     with open(META_PATH, "w") as f:
         json.dump(meta, f, indent=2)
-    console.print(f"  Saved index metadata")
+    console.print("  Saved index metadata")
 
 
 # ---------------------------------------------------------------------------
 # Load
 # ---------------------------------------------------------------------------
+
 
 class RAGIndex:
     """
@@ -151,7 +154,7 @@ class RAGIndex:
         self.meta = meta
 
     @classmethod
-    def load(cls, index_dir: str | Path = INDEX_DIR) -> "RAGIndex":
+    def load(cls, index_dir: str | Path = INDEX_DIR) -> RAGIndex:
         """
         Load index from disk.
 
@@ -165,10 +168,7 @@ class RAGIndex:
 
         for p in (faiss_path, chunks_path, meta_path):
             if not p.exists():
-                raise FileNotFoundError(
-                    f"Index file not found: {p}\n"
-                    "Run: python -m rag_eval index"
-                )
+                raise FileNotFoundError(f"Index file not found: {p}\nRun: python -m rag_eval index")
 
         faiss_index = faiss.read_index(str(faiss_path))
 

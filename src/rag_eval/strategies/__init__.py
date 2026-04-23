@@ -12,6 +12,7 @@ Phase 4 complete:
   hyde       — Hypothetical Document Embeddings (extra LLM call)
   multi_query — query expansion + deduplicated dense retrieval
 """
+
 from __future__ import annotations
 
 from rag_eval.config import Config
@@ -47,8 +48,5 @@ def get_strategy(name: str, cfg: Config, index: RAGIndex) -> BaseStrategy:
     """
     if name not in STRATEGY_REGISTRY:
         implemented = sorted(STRATEGY_REGISTRY)
-        raise ValueError(
-            f"Unknown strategy '{name}'.\n"
-            f"Available: {implemented}"
-        )
+        raise ValueError(f"Unknown strategy '{name}'.\nAvailable: {implemented}")
     return STRATEGY_REGISTRY[name](cfg, index)

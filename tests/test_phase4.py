@@ -5,13 +5,13 @@ All LLM/API calls are mocked.  The FAISS + BM25 index is built from a tiny
 3-passage fake corpus (reuses the built_index fixture from test_phase2).
 No API keys or network access needed — safe to run in CI.
 """
+
 from __future__ import annotations
 
 import os
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Shared fixtures (identical to test_phase2 to keep tests self-contained)
@@ -27,10 +27,10 @@ FAKE_CORPUS = [
 @pytest.fixture
 def built_index(tmp_path):
     """Build a small real FAISS + BM25 index into tmp_path."""
+    import rag_eval.indexer as idx_mod
     from rag_eval.chunker import chunk_corpus
     from rag_eval.config import Config
-    from rag_eval.indexer import build_index, RAGIndex
-    import rag_eval.indexer as idx_mod
+    from rag_eval.indexer import RAGIndex, build_index
 
     idx_mod.INDEX_DIR = tmp_path
     idx_mod.FAISS_PATH = tmp_path / "faiss.index"
@@ -60,8 +60,8 @@ def _mock_llm_response(text: str = "Test answer.") -> MagicMock:
 # RRF fusion helper (no LLM, pure unit test)
 # ---------------------------------------------------------------------------
 
-class TestRRFFusion:
 
+class TestRRFFusion:
     def test_rrf_prefers_docs_in_both_lists(self):
         from rag_eval.strategies.hybrid import _rrf_merge
 
@@ -108,11 +108,11 @@ class TestRRFFusion:
 # HybridRAG
 # ---------------------------------------------------------------------------
 
-class TestHybridRAG:
 
+class TestHybridRAG:
     def test_hybrid_returns_result(self, built_index):
-        from rag_eval.strategies.hybrid import HybridRAG
         from rag_eval.config import Config
+        from rag_eval.strategies.hybrid import HybridRAG
 
         cfg = Config()
         with patch.dict(os.environ, {"GROQ_API_KEY": "dummy"}):
@@ -128,8 +128,8 @@ class TestHybridRAG:
         assert result.metadata["strategy"] == "hybrid"
 
     def test_hybrid_context_count_bounded_by_top_k(self, built_index):
-        from rag_eval.strategies.hybrid import HybridRAG
         from rag_eval.config import Config, RetrievalConfig
+        from rag_eval.strategies.hybrid import HybridRAG
 
         cfg = Config()
         cfg = cfg.model_copy(update={"retrieval": RetrievalConfig(top_k=2)})
@@ -142,8 +142,8 @@ class TestHybridRAG:
         assert len(result.contexts) <= 2
 
     def test_hybrid_metadata_has_hit_counts(self, built_index):
-        from rag_eval.strategies.hybrid import HybridRAG
         from rag_eval.config import Config
+        from rag_eval.strategies.hybrid import HybridRAG
 
         cfg = Config()
         with patch.dict(os.environ, {"GROQ_API_KEY": "dummy"}):
@@ -158,6 +158,7 @@ class TestHybridRAG:
 
     def test_hybrid_registered_in_strategy_registry(self):
         from rag_eval.strategies import STRATEGY_REGISTRY
+
         assert "hybrid" in STRATEGY_REGISTRY
 
 
@@ -165,11 +166,11 @@ class TestHybridRAG:
 # RerankRAG
 # ---------------------------------------------------------------------------
 
-class TestRerankRAG:
 
+class TestRerankRAG:
     def test_rerank_returns_result(self, built_index):
-        from rag_eval.strategies.rerank import RerankRAG
         from rag_eval.config import Config
+        from rag_eval.strategies.rerank import RerankRAG
 
         cfg = Config()
         mock_reranker = MagicMock(return_value=[(0, 0.95), (1, 0.80)])
@@ -182,13 +183,13 @@ class TestRerankRAG:
                 result = strategy.answer("What is beta?")
 
         assert result.answer == "Reranked answer."
-        assert len(result.contexts) == 2   # matches mock reranker top_n
+        assert len(result.contexts) == 2  # matches mock reranker top_n
         assert result.metadata["strategy"] == "rerank"
 
     def test_rerank_context_order_follows_reranker(self, built_index):
         """Contexts should appear in the order the reranker returns them."""
-        from rag_eval.strategies.rerank import RerankRAG
         from rag_eval.config import Config
+        from rag_eval.strategies.rerank import RerankRAG
 
         cfg = Config()
 
@@ -202,13 +203,14 @@ class TestRerankRAG:
                 strategy.llm.invoke.return_value = _mock_llm_response()
 
                 # Dense search will return at least 3 candidates from our 3-chunk index
-                result = strategy.answer("Any question")
+                strategy.answer("Any question")
 
         # Verify reranker was actually called
         assert mock_reranker.called
 
     def test_rerank_registered_in_strategy_registry(self):
         from rag_eval.strategies import STRATEGY_REGISTRY
+
         assert "rerank" in STRATEGY_REGISTRY
 
 
@@ -216,11 +218,11 @@ class TestRerankRAG:
 # HyDERAG
 # ---------------------------------------------------------------------------
 
-class TestHyDERAG:
 
+class TestHyDERAG:
     def test_hyde_returns_result(self, built_index):
-        from rag_eval.strategies.hyde import HyDERAG
         from rag_eval.config import Config
+        from rag_eval.strategies.hyde import HyDERAG
 
         cfg = Config()
         # First invoke = hypothetical doc generation; second = final answer
@@ -245,8 +247,8 @@ class TestHyDERAG:
 
     def test_hyde_makes_two_llm_calls(self, built_index):
         """HyDE must call the LLM exactly twice (hypothetical doc + answer)."""
-        from rag_eval.strategies.hyde import HyDERAG
         from rag_eval.config import Config
+        from rag_eval.strategies.hyde import HyDERAG
 
         cfg = Config()
         with patch.dict(os.environ, {"GROQ_API_KEY": "dummy"}):
@@ -258,8 +260,8 @@ class TestHyDERAG:
         assert strategy.llm.invoke.call_count == 2
 
     def test_hyde_metadata_has_hypothetical_doc(self, built_index):
-        from rag_eval.strategies.hyde import HyDERAG
         from rag_eval.config import Config
+        from rag_eval.strategies.hyde import HyDERAG
 
         cfg = Config()
         with patch.dict(os.environ, {"GROQ_API_KEY": "dummy"}):
@@ -273,6 +275,7 @@ class TestHyDERAG:
 
     def test_hyde_registered_in_strategy_registry(self):
         from rag_eval.strategies import STRATEGY_REGISTRY
+
         assert "hyde" in STRATEGY_REGISTRY
 
 
@@ -280,11 +283,11 @@ class TestHyDERAG:
 # MultiQueryRAG
 # ---------------------------------------------------------------------------
 
-class TestMultiQueryRAG:
 
+class TestMultiQueryRAG:
     def test_multi_query_returns_result(self, built_index):
-        from rag_eval.strategies.multi_query import MultiQueryRAG
         from rag_eval.config import Config
+        from rag_eval.strategies.multi_query import MultiQueryRAG
 
         cfg = Config()
         call_count = {"n": 0}
@@ -312,8 +315,8 @@ class TestMultiQueryRAG:
 
     def test_multi_query_makes_two_llm_calls(self, built_index):
         """MultiQuery must call the LLM exactly twice (expansion + answer)."""
-        from rag_eval.strategies.multi_query import MultiQueryRAG
         from rag_eval.config import Config
+        from rag_eval.strategies.multi_query import MultiQueryRAG
 
         cfg = Config()
         with patch.dict(os.environ, {"GROQ_API_KEY": "dummy"}):
@@ -326,8 +329,8 @@ class TestMultiQueryRAG:
 
     def test_multi_query_deduplicates_chunks(self, built_index):
         """Contexts should not contain duplicate chunks."""
-        from rag_eval.strategies.multi_query import MultiQueryRAG
         from rag_eval.config import Config
+        from rag_eval.strategies.multi_query import MultiQueryRAG
 
         cfg = Config()
         with patch.dict(os.environ, {"GROQ_API_KEY": "dummy"}):
@@ -343,8 +346,8 @@ class TestMultiQueryRAG:
         assert len(result.contexts) == len(set(result.contexts))
 
     def test_multi_query_metadata_has_queries(self, built_index):
-        from rag_eval.strategies.multi_query import MultiQueryRAG
         from rag_eval.config import Config
+        from rag_eval.strategies.multi_query import MultiQueryRAG
 
         cfg = Config()
         with patch.dict(os.environ, {"GROQ_API_KEY": "dummy"}):
@@ -355,10 +358,11 @@ class TestMultiQueryRAG:
 
         assert "queries" in result.metadata
         assert "num_queries" in result.metadata
-        assert result.metadata["num_queries"] >= 1   # at least original question
+        assert result.metadata["num_queries"] >= 1  # at least original question
 
     def test_multi_query_registered_in_strategy_registry(self):
         from rag_eval.strategies import STRATEGY_REGISTRY
+
         assert "multi_query" in STRATEGY_REGISTRY
 
 
@@ -366,39 +370,43 @@ class TestMultiQueryRAG:
 # Strategy registry completeness
 # ---------------------------------------------------------------------------
 
-class TestStrategyRegistry:
 
+class TestStrategyRegistry:
     def test_all_five_strategies_registered(self):
         from rag_eval.strategies import STRATEGY_REGISTRY
+
         expected = {"naive", "hybrid", "rerank", "hyde", "multi_query"}
         assert expected == set(STRATEGY_REGISTRY.keys())
 
     def test_get_strategy_unknown_raises(self):
-        from rag_eval.strategies import get_strategy
-        from rag_eval.config import Config
         from unittest.mock import MagicMock
+
+        from rag_eval.config import Config
+        from rag_eval.strategies import get_strategy
 
         with pytest.raises(ValueError, match="Unknown strategy"):
             get_strategy("nonexistent", Config(), MagicMock())
 
     def test_get_strategy_raises_no_longer_says_not_implemented(self):
         """After Phase 4, the error message should say 'Unknown' not 'not implemented yet'."""
-        from rag_eval.strategies import get_strategy
         from rag_eval.config import Config
+        from rag_eval.strategies import get_strategy
 
         with pytest.raises(ValueError) as exc_info:
             get_strategy("unknown_strat", Config(), MagicMock())
 
-        assert "not implemented yet" not in str(exc_info.value).lower() or \
-               "unknown" in str(exc_info.value).lower()
+        assert (
+            "not implemented yet" not in str(exc_info.value).lower()
+            or "unknown" in str(exc_info.value).lower()
+        )
 
 
 # ---------------------------------------------------------------------------
 # Multi-query helper: _parse_query_variants
 # ---------------------------------------------------------------------------
 
-class TestParseQueryVariants:
 
+class TestParseQueryVariants:
     def test_includes_original_first(self):
         from rag_eval.strategies.multi_query import _parse_query_variants
 
@@ -426,27 +434,28 @@ class TestParseQueryVariants:
 
         text = "\n".join([f"Query {i}" for i in range(10)])
         variants = _parse_query_variants(text, "Original?", max_variants=3)
-        assert len(variants) <= 4   # original + 3 variants
+        assert len(variants) <= 4  # original + 3 variants
 
 
 # ---------------------------------------------------------------------------
 # Reranker provider
 # ---------------------------------------------------------------------------
 
-class TestRerankerProvider:
 
+class TestRerankerProvider:
     def test_get_reranker_raises_when_disabled(self):
-        from rag_eval.providers.reranker import get_reranker
         from rag_eval.config import RerankerConfig
+        from rag_eval.providers.reranker import get_reranker
 
         cfg = RerankerConfig(enabled=False)
         with pytest.raises(ValueError, match="disabled"):
             get_reranker(cfg)
 
     def test_get_reranker_raises_missing_api_key(self):
-        from rag_eval.providers.reranker import get_reranker
-        from rag_eval.config import RerankerConfig
         import os
+
+        from rag_eval.config import RerankerConfig
+        from rag_eval.providers.reranker import get_reranker
 
         cfg = RerankerConfig(provider="cohere", enabled=True)
         # Ensure env var is absent
@@ -456,8 +465,8 @@ class TestRerankerProvider:
                 get_reranker(cfg)
 
     def test_get_reranker_returns_callable(self):
-        from rag_eval.providers.reranker import get_reranker
         from rag_eval.config import RerankerConfig
+        from rag_eval.providers.reranker import get_reranker
 
         cfg = RerankerConfig(provider="cohere", enabled=True)
         with patch.dict(os.environ, {"COHERE_API_KEY": "dummy"}):
@@ -467,8 +476,8 @@ class TestRerankerProvider:
         assert callable(reranker)
 
     def test_get_reranker_unknown_provider_raises(self):
-        from rag_eval.providers.reranker import get_reranker
         from rag_eval.config import RerankerConfig
+        from rag_eval.providers.reranker import get_reranker
 
         cfg = RerankerConfig(provider="cohere", enabled=True)
         cfg = cfg.model_copy(update={"provider": "unknown_provider"})

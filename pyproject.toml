@@ -102,3 +102,14 @@ ignore = ["E501"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+filterwarnings = [
+    # RAGAS 0.4.x deprecates the LangChain wrapper in favour of llm_factory.
+    # We keep using the wrapper because it is the only provider-agnostic path
+    # that supports Groq / Anthropic / Ollama out of the box.  Will migrate
+    # when RAGAS ships a proper multi-provider factory.
+    "ignore:LangchainLLMWrapper is deprecated:DeprecationWarning",
+    "ignore:LangchainEmbeddingsWrapper is deprecated:DeprecationWarning",
+    # FAISS ships SWIG C-extension types that lack __module__. Harmless.
+    "ignore:builtin type Swig:DeprecationWarning",
+    "ignore:builtin type swigvarlink:DeprecationWarning",
+]

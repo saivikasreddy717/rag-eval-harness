@@ -36,11 +36,12 @@ google      Google AI / Gemini (Gemini 2.0 Flash, Gemini Pro, ...)
             Install extra: uv sync --extra google
             Env: GOOGLE_API_KEY
 """
+
 from __future__ import annotations
 
 from langchain_core.language_models import BaseChatModel
 
-from rag_eval.config import LLMConfig, JudgeConfig
+from rag_eval.config import JudgeConfig, LLMConfig
 
 
 def get_llm(config: LLMConfig | JudgeConfig) -> BaseChatModel:
@@ -68,8 +69,7 @@ def get_llm(config: LLMConfig | JudgeConfig) -> BaseChatModel:
             from langchain_groq import ChatGroq
         except ImportError:
             raise ImportError(
-                "langchain-groq is not installed.\n"
-                "It is included in core deps — run: uv sync"
+                "langchain-groq is not installed.\nIt is included in core deps — run: uv sync"
             )
         return ChatGroq(
             model=config.model,
@@ -83,8 +83,7 @@ def get_llm(config: LLMConfig | JudgeConfig) -> BaseChatModel:
             from langchain_openai import ChatOpenAI
         except ImportError:
             raise ImportError(
-                "langchain-openai is not installed.\n"
-                "Install with: uv sync --extra openai"
+                "langchain-openai is not installed.\nInstall with: uv sync --extra openai"
             )
         return ChatOpenAI(
             model=config.model,
@@ -98,8 +97,7 @@ def get_llm(config: LLMConfig | JudgeConfig) -> BaseChatModel:
             from langchain_anthropic import ChatAnthropic
         except ImportError:
             raise ImportError(
-                "langchain-anthropic is not installed.\n"
-                "Install with: uv sync --extra anthropic"
+                "langchain-anthropic is not installed.\nInstall with: uv sync --extra anthropic"
             )
         return ChatAnthropic(
             model=config.model,
@@ -128,8 +126,7 @@ def get_llm(config: LLMConfig | JudgeConfig) -> BaseChatModel:
             from langchain_google_genai import ChatGoogleGenerativeAI
         except ImportError:
             raise ImportError(
-                "langchain-google-genai is not installed.\n"
-                "Install with: uv sync --extra google"
+                "langchain-google-genai is not installed.\nInstall with: uv sync --extra google"
             )
         return ChatGoogleGenerativeAI(
             model=config.model,

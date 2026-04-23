@@ -16,11 +16,11 @@ Charts in report.html
 
 The HTML embeds Plotly from CDN — no extra JS files needed.
 """
+
 from __future__ import annotations
 
-from pathlib import Path
 from datetime import datetime, timezone
-from typing import Optional
+from pathlib import Path
 
 import pandas as pd
 from rich.console import Console
@@ -59,6 +59,7 @@ _STRATEGY_COLOURS = [
 # Data loading
 # ---------------------------------------------------------------------------
 
+
 def load_scorecards(output_dir: Path) -> pd.DataFrame:
     """
     Load all scorecard_*.csv files found in output_dir.
@@ -75,15 +76,13 @@ def load_scorecards(output_dir: Path) -> pd.DataFrame:
     output_dir = Path(output_dir)
     if not output_dir.exists():
         raise FileNotFoundError(
-            f"Output directory not found: {output_dir}\n"
-            "Run: python -m rag_eval eval first."
+            f"Output directory not found: {output_dir}\nRun: python -m rag_eval eval first."
         )
 
     scorecard_files = sorted(output_dir.glob("scorecard_*.csv"))
     if not scorecard_files:
         raise FileNotFoundError(
-            f"No scorecard CSVs found in {output_dir}\n"
-            "Run: python -m rag_eval eval first."
+            f"No scorecard CSVs found in {output_dir}\nRun: python -m rag_eval eval first."
         )
 
     frames = []
@@ -98,6 +97,7 @@ def load_scorecards(output_dir: Path) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Matrix building
 # ---------------------------------------------------------------------------
+
 
 def build_comparison_matrix(combined_df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -128,6 +128,7 @@ def build_comparison_matrix(combined_df: pd.DataFrame) -> pd.DataFrame:
 # Plotly chart builders (each returns a Plotly Figure)
 # ---------------------------------------------------------------------------
 
+
 def _strategy_colours(strategies: list[str]) -> dict[str, str]:
     """Map strategy names to colours."""
     return {s: _STRATEGY_COLOURS[i % len(_STRATEGY_COLOURS)] for i, s in enumerate(strategies)}
@@ -144,14 +145,16 @@ def _make_metrics_bar(matrix: pd.DataFrame):
     for _, row in matrix.iterrows():
         strat = row["strategy"]
         scores = [row.get(m, float("nan")) for m in _METRIC_NAMES]
-        fig.add_trace(go.Bar(
-            name=strat,
-            x=[_METRIC_LABELS.get(m, m) for m in _METRIC_NAMES],
-            y=scores,
-            marker_color=colours[strat],
-            text=[f"{v:.3f}" if pd.notna(v) else "N/A" for v in scores],
-            textposition="outside",
-        ))
+        fig.add_trace(
+            go.Bar(
+                name=strat,
+                x=[_METRIC_LABELS.get(m, m) for m in _METRIC_NAMES],
+                y=scores,
+                marker_color=colours[strat],
+                text=[f"{v:.3f}" if pd.notna(v) else "N/A" for v in scores],
+                textposition="outside",
+            )
+        )
 
     fig.update_layout(
         title="RAGAS Metrics by Strategy",
@@ -181,15 +184,17 @@ def _make_radar(matrix: pd.DataFrame):
         strat = row["strategy"]
         r = [row.get(m, 0.0) for m in _METRIC_NAMES]
         r_closed = r + [r[0]]
-        fig.add_trace(go.Scatterpolar(
-            r=r_closed,
-            theta=theta,
-            fill="toself",
-            name=strat,
-            line=dict(color=colours[strat]),
-            fillcolor=colours[strat],
-            opacity=0.25,
-        ))
+        fig.add_trace(
+            go.Scatterpolar(
+                r=r_closed,
+                theta=theta,
+                fill="toself",
+                name=strat,
+                line=dict(color=colours[strat]),
+                fillcolor=colours[strat],
+                opacity=0.25,
+            )
+        )
 
     fig.update_layout(
         title="Strategy Radar: All RAGAS Metrics",
@@ -212,14 +217,16 @@ def _make_latency_bar(matrix: pd.DataFrame):
     colours = _strategy_colours(strategies)
     latencies = matrix["latency_ms"].tolist()
 
-    fig = go.Figure(go.Bar(
-        x=latencies,
-        y=strategies,
-        orientation="h",
-        marker_color=[colours[s] for s in strategies],
-        text=[f"{v:.0f} ms" for v in latencies],
-        textposition="outside",
-    ))
+    fig = go.Figure(
+        go.Bar(
+            x=latencies,
+            y=strategies,
+            orientation="h",
+            marker_color=[colours[s] for s in strategies],
+            text=[f"{v:.0f} ms" for v in latencies],
+            textposition="outside",
+        )
+    )
     fig.update_layout(
         title="Mean Query Latency by Strategy",
         xaxis_title="Latency (ms)",
@@ -248,15 +255,17 @@ def _make_cost_scatter(matrix: pd.DataFrame):
         y = row.get("answer_correctness", float("nan"))
         if pd.isna(x) or pd.isna(y):
             continue
-        fig.add_trace(go.Scatter(
-            x=[x],
-            y=[y],
-            mode="markers+text",
-            marker=dict(size=18, color=colours[strat]),
-            text=[strat],
-            textposition="top center",
-            name=strat,
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=[x],
+                y=[y],
+                mode="markers+text",
+                marker=dict(size=18, color=colours[strat]),
+                text=[strat],
+                textposition="top center",
+                name=strat,
+            )
+        )
 
     fig.update_layout(
         title="Cost vs Answer Correctness",
@@ -274,6 +283,7 @@ def _make_cost_scatter(matrix: pd.DataFrame):
 # HTML report assembly
 # ---------------------------------------------------------------------------
 
+
 def generate_html_report(matrix: pd.DataFrame, output_file: Path) -> None:
     """
     Generate a self-contained interactive HTML report.
@@ -286,9 +296,9 @@ def generate_html_report(matrix: pd.DataFrame, output_file: Path) -> None:
 
     charts = [
         ("ragas_metrics", _make_metrics_bar(matrix)),
-        ("radar",         _make_radar(matrix)),
-        ("latency",       _make_latency_bar(matrix)),
-        ("cost_scatter",  _make_cost_scatter(matrix)),
+        ("radar", _make_radar(matrix)),
+        ("latency", _make_latency_bar(matrix)),
+        ("cost_scatter", _make_cost_scatter(matrix)),
     ]
 
     # Convert each figure to an HTML div (no full-page wrapper, no duplicate Plotly JS)
@@ -419,6 +429,7 @@ def generate_html_report(matrix: pd.DataFrame, output_file: Path) -> None:
 # Rich console summary table
 # ---------------------------------------------------------------------------
 
+
 def _print_comparison_table(matrix: pd.DataFrame) -> None:
     """Print a rich comparison table to the console."""
     table = Table(
@@ -468,6 +479,7 @@ def _print_comparison_table(matrix: pd.DataFrame) -> None:
 # Main entry point
 # ---------------------------------------------------------------------------
 
+
 def compare_strategies(cfg: Config) -> tuple[Path, Path]:
     """
     Load all scorecard CSVs, build a comparison matrix, and write reports.
@@ -486,8 +498,10 @@ def compare_strategies(cfg: Config) -> tuple[Path, Path]:
     console.print("[cyan]Building comparison matrix...[/]")
     matrix = build_comparison_matrix(combined_df)
 
-    console.print(f"Comparing [bold]{len(matrix)}[/] strateg{'y' if len(matrix) == 1 else 'ies'}: "
-                  f"[cyan]{', '.join(matrix['strategy'].tolist())}[/]")
+    console.print(
+        f"Comparing [bold]{len(matrix)}[/] strateg{'y' if len(matrix) == 1 else 'ies'}: "
+        f"[cyan]{', '.join(matrix['strategy'].tolist())}[/]"
+    )
 
     # Save results.csv
     results_csv = output_dir / "results.csv"

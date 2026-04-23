@@ -17,6 +17,7 @@ Why hybrid beats naive:
 Reference: Cormack et al. (2009) "Reciprocal Rank Fusion outperforms
   Condorcet and individual Rank Learning Methods."
 """
+
 from __future__ import annotations
 
 from rag_eval.strategies.base import BaseStrategy, RAGResult
@@ -54,7 +55,7 @@ def _rrf_merge(
     for rank, hit in enumerate(bm25_hits):
         cid = hit["chunk_id"]
         scores[cid] = scores.get(cid, 0.0) + 1.0 / (k + rank + 1)
-        all_chunks.setdefault(cid, hit)   # keep dense hit if already seen
+        all_chunks.setdefault(cid, hit)  # keep dense hit if already seen
 
     ranked_ids = sorted(scores.keys(), key=lambda cid: scores[cid], reverse=True)
     return [all_chunks[cid] for cid in ranked_ids[:top_k]]

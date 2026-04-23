@@ -25,6 +25,7 @@ Output format
 qa_pairs  : what the runner iterates — question + ground-truth for RAGAS
 corpus    : unique passages across all QA pairs — what gets indexed
 """
+
 from __future__ import annotations
 
 import json
@@ -42,15 +43,16 @@ console = Console()
 # Type aliases
 # ---------------------------------------------------------------------------
 
+
 class QAPair(TypedDict):
     id: str
     question: str
     reference_answer: str
-    reference_contexts: list[str]   # ground-truth passages (for RAGAS context_recall)
+    reference_contexts: list[str]  # ground-truth passages (for RAGAS context_recall)
 
 
 class Passage(TypedDict):
-    passage_id: str                 # unique key (passage title in HotpotQA)
+    passage_id: str  # unique key (passage title in HotpotQA)
     text: str
 
 
@@ -92,6 +94,7 @@ def _save_cache(data: BenchmarkData) -> None:
 # HotpotQA loader
 # ---------------------------------------------------------------------------
 
+
 def load_hotpotqa(config: DatasetConfig, force: bool = False) -> BenchmarkData:
     """
     Load and sample HotpotQA (distractor setting) from HuggingFace Datasets.
@@ -132,13 +135,10 @@ def load_hotpotqa(config: DatasetConfig, force: bool = False) -> BenchmarkData:
     indices = sorted(rng.sample(range(total), sample_size))
     sampled = ds.select(indices)
 
-    console.print(
-        f"[green]Sampled[/] {sample_size}/{total} questions "
-        f"(seed={config.seed})"
-    )
+    console.print(f"[green]Sampled[/] {sample_size}/{total} questions (seed={config.seed})")
 
     qa_pairs: list[QAPair] = []
-    corpus_map: dict[str, str] = {}   # passage_id -> text (deduplicates across questions)
+    corpus_map: dict[str, str] = {}  # passage_id -> text (deduplicates across questions)
 
     for item in sampled:
         # Build passage map for this question (10 passages: 2 relevant + 8 distractors)
@@ -152,11 +152,7 @@ def load_hotpotqa(config: DatasetConfig, force: bool = False) -> BenchmarkData:
 
         # Ground-truth contexts = the supporting passages (2 per question typically)
         supporting_titles = set(item["supporting_facts"]["title"])
-        reference_contexts = [
-            passage_texts[t]
-            for t in supporting_titles
-            if t in passage_texts
-        ]
+        reference_contexts = [passage_texts[t] for t in supporting_titles if t in passage_texts]
 
         qa_pairs.append(
             QAPair(
@@ -167,17 +163,12 @@ def load_hotpotqa(config: DatasetConfig, force: bool = False) -> BenchmarkData:
             )
         )
 
-    corpus: list[Passage] = [
-        Passage(passage_id=pid, text=text)
-        for pid, text in corpus_map.items()
-    ]
+    corpus: list[Passage] = [Passage(passage_id=pid, text=text) for pid, text in corpus_map.items()]
 
     data = BenchmarkData(qa_pairs=qa_pairs, corpus=corpus)
     _save_cache(data)
 
     console.print(
-        f"[green]Built corpus:[/] "
-        f"{len(qa_pairs)} QA pairs, "
-        f"{len(corpus)} unique passages"
+        f"[green]Built corpus:[/] {len(qa_pairs)} QA pairs, {len(corpus)} unique passages"
     )
     return data
