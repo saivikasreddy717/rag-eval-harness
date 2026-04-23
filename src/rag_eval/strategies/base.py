@@ -114,9 +114,40 @@ class BaseStrategy(ABC):
     # Shared helpers available to all strategies
     # ------------------------------------------------------------------
 
-    def embed_query(self, question: str) -> list[float]:
-        """Embed a single query string."""
-        return self.embeddings.embed_query(question)
+    def embed_query(self, text: str) -> list[float]:
+        """Embed a single text string (query or hypothetical document)."""
+        return self.embeddings.embed_query(text)
+
+    def raw_llm_call(self, prompt: str) -> tuple[str, int, int, float]:
+        """
+        Call the LLM with a plain-text prompt (no RAG context).
+
+        Used by strategies that need an extra LLM call before retrieval,
+        such as HyDE (hypothetical document generation) or multi-query
+        expansion. Cost is estimated from token counts.
+
+        Args:
+            prompt: Plain text prompt to send to the LLM.
+
+        Returns:
+            (response_text, prompt_tokens, completion_tokens, cost_usd)
+        """
+        from langchain_core.messages import HumanMessage
+
+        prompt_tokens = count_tokens(prompt)
+        response = self.llm.invoke([HumanMessage(content=prompt)])
+        text = response.content.strip()
+        completion_tokens = count_tokens(text)
+
+        input_price, output_price = _lookup_price(
+            self.cfg.generator.provider,
+            self.cfg.generator.model,
+        )
+        cost_usd = (
+            prompt_tokens * input_price / 1_000_000
+            + completion_tokens * output_price / 1_000_000
+        )
+        return text, prompt_tokens, completion_tokens, cost_usd
 
     def generate(
         self,

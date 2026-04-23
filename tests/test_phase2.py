@@ -141,12 +141,13 @@ class TestStrategyBase:
         from rag_eval.strategies import STRATEGY_REGISTRY
         assert "naive" in STRATEGY_REGISTRY
 
-    def test_get_strategy_raises_for_unimplemented(self):
+    def test_get_strategy_raises_for_unknown(self):
+        """Requesting a strategy name that does not exist raises ValueError."""
         from rag_eval.strategies import get_strategy
         from rag_eval.config import Config
 
-        with pytest.raises(ValueError, match="not implemented yet"):
-            get_strategy("hybrid", Config(), MagicMock())
+        with pytest.raises(ValueError):
+            get_strategy("totally_unknown_strategy", Config(), MagicMock())
 
 
 # ---------------------------------------------------------------------------
