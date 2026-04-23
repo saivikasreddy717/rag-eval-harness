@@ -124,14 +124,56 @@ class TestCLI:
         assert result.exit_code == 0
         assert "groq" in result.output.lower()
 
-    def test_placeholder_commands_exit_cleanly(self):
-        """run / compare are still placeholders — should exit 0."""
+    def test_compare_placeholder_exits_cleanly(self):
+        """compare is still a placeholder — should exit 0 with an informational panel."""
         from rag_eval.cli import main
 
         runner = CliRunner()
-        for cmd in ["run", "compare"]:
-            result = runner.invoke(main, [cmd])
-            assert result.exit_code == 0, f"Command '{cmd}' failed: {result.output}"
+        result = runner.invoke(main, ["compare"])
+        assert result.exit_code == 0, f"Command 'compare' failed: {result.output}"
+
+    def test_run_requires_index(self):
+        """run is implemented — exits 1 with a helpful message when index is absent."""
+        from rag_eval.cli import main
+        from rag_eval.indexer import index_exists
+
+        if index_exists():
+            # Index present on this machine: skip the no-index path.
+            return
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["run"])
+        assert result.exit_code == 1
+        assert "index" in result.output.lower()
+
+    def test_eval_requires_predictions(self):
+        """eval is implemented — exits 1 with a helpful message when predictions are absent."""
+        import tempfile, textwrap
+        from click.testing import CliRunner
+        from rag_eval.cli import main
+
+        with tempfile.TemporaryDirectory() as tmp:
+            config_yaml = f"{tmp}/cfg.yaml"
+            with open(config_yaml, "w") as f:
+                f.write(textwrap.dedent(f"""\
+                    generator:
+                      provider: groq
+                      model: meta-llama/llama-4-scout-17b-16e-instruct
+                    judge:
+                      provider: groq
+                      model: llama-3.3-70b-versatile
+                    embeddings:
+                      provider: local
+                      model: BAAI/bge-large-en-v1.5
+                    strategies:
+                      - naive
+                    output:
+                      dir: "{tmp.replace(chr(92), '/')}"
+                """))
+            runner = CliRunner()
+            result = runner.invoke(main, ["--config", config_yaml, "eval"])
+            assert result.exit_code == 1
+            assert "predictions" in result.output.lower() or "evaluate" in result.output.lower()
 
     def test_index_command_detects_missing_index(self):
         """index command exits cleanly when index already exists (or tells you to build)."""

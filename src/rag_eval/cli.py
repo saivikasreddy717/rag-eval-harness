@@ -214,19 +214,76 @@ def run(ctx: click.Context, strategy: tuple[str, ...]) -> None:
 
 
 @main.command("eval")
+@click.option(
+    "--strategy", "-s",
+    multiple=True,
+    help="Strategy to evaluate. Repeat for multiple. Default: all strategies in config.",
+)
+@click.option(
+    "--max-questions", "-n",
+    default=None,
+    type=int,
+    show_default=True,
+    help=(
+        "Evaluate only the first N questions. Useful for quick sanity checks "
+        "or when API rate limits are a concern."
+    ),
+)
 @click.pass_context
-def eval_cmd(ctx: click.Context) -> None:
-    """Score predictions with RAGAS metrics. [Phase 3]"""
-    console.print(Panel(
-        "[yellow]Coming in Phase 3[/yellow]\n\n"
-        "This command will:\n"
-        "  1. Load predictions from results/\n"
-        "  2. Score with RAGAS: faithfulness, relevancy, context precision, recall\n"
-        "  3. Aggregate per-strategy scores\n"
-        "  4. Save scorecard_<strategy>.csv",
-        title="eval",
-        border_style="yellow",
-    ))
+def eval_cmd(ctx: click.Context, strategy: tuple[str, ...], max_questions: int | None) -> None:
+    """Score predictions with RAGAS (faithfulness, relevancy, precision, recall, correctness)."""
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    from pathlib import Path
+    from rag_eval.config import load_config
+    from rag_eval.evaluator import evaluate_predictions
+
+    cfg = load_config(ctx.obj["config_path"])
+    output_dir = Path(cfg.output.dir)
+
+    # Resolve which strategies to evaluate
+    strategies_to_eval = list(strategy) if strategy else cfg.strategies
+
+    # Find available prediction files
+    available = []
+    missing = []
+    for s in strategies_to_eval:
+        pred_file = output_dir / f"predictions_{s}.jsonl"
+        if pred_file.exists():
+            available.append((s, pred_file))
+        else:
+            missing.append(s)
+
+    if missing:
+        console.print(
+            f"[yellow]No predictions found for:[/] {', '.join(missing)}\n"
+            "Run [bold]python -m rag_eval run[/] first."
+        )
+
+    if not available:
+        console.print("[red]Nothing to evaluate.[/]")
+        raise SystemExit(1)
+
+    console.print(
+        f"Evaluating [bold]{len(available)}[/] "
+        f"strateg{'y' if len(available) == 1 else 'ies'}: "
+        f"[cyan]{', '.join(s for s, _ in available)}[/]"
+    )
+    if max_questions:
+        console.print(f"[dim]Capped at {max_questions} questions per strategy.[/]")
+
+    scorecard_paths = []
+    for _strategy_name, pred_file in available:
+        console.rule(f"[cyan]{_strategy_name}[/]")
+        scorecard = evaluate_predictions(pred_file, cfg, max_questions=max_questions)
+        scorecard_paths.append(scorecard)
+
+    console.rule("[green]Evaluation complete[/]")
+    console.print(
+        f"Scorecards saved to [cyan]{cfg.output.dir}/[/]. "
+        "Run [bold]python -m rag_eval compare[/] next."
+    )
 
 
 @main.command()
