@@ -57,15 +57,14 @@ class HyDERAG(BaseStrategy):
     def answer(self, question: str) -> RAGResult:
         t0 = time.perf_counter()
 
-        # Step 1: generate a hypothetical document for the question
+        # Steps 1–3: retrieval phase (includes the HyDE LLM call — it is the
+        # cost of this strategy's retrieval approach).
+        t_ret = time.perf_counter()
         hyp_prompt = _HYDE_PROMPT.format(question=question)
         hyp_doc, hyp_pt, hyp_ct, hyp_cost = self.raw_llm_call(hyp_prompt)
-
-        # Step 2: embed the hypothetical document (not the question)
         hyp_embedding = self.embed_query(hyp_doc)
-
-        # Step 3: dense retrieval using the hypothetical embedding
         hits = self.index.dense_search(hyp_embedding, top_k=self.cfg.retrieval.top_k)
+        retrieval_latency_ms = (time.perf_counter() - t_ret) * 1000
         contexts = [h["text"] for h in hits]
 
         # Step 4: generate the real answer from retrieved contexts
@@ -80,12 +79,12 @@ class HyDERAG(BaseStrategy):
             contexts=contexts,
             latency_ms=total_latency_ms,
             cost_usd=total_cost_usd,
-            # Report tokens for the final RAG call (standard across strategies)
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
+            retrieval_latency_ms=retrieval_latency_ms,
             metadata={
                 "strategy": self.name,
-                "hypothetical_doc": hyp_doc[:200],  # truncated for logging
+                "hypothetical_doc": hyp_doc[:200],
                 "hyp_prompt_tokens": hyp_pt,
                 "hyp_completion_tokens": hyp_ct,
                 "num_hits": len(hits),

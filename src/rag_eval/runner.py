@@ -94,6 +94,7 @@ def run_strategy(
                         "reference_contexts": qa["reference_contexts"],
                         "strategy": strategy.name,
                         "latency_ms": round(result.latency_ms, 2),
+                        "retrieval_latency_ms": round(result.retrieval_latency_ms, 2),
                         "cost_usd": round(result.cost_usd, 6),
                         "prompt_tokens": result.prompt_tokens,
                         "completion_tokens": result.completion_tokens,

@@ -24,6 +24,8 @@ Requirements:
 
 from __future__ import annotations
 
+import time
+
 from rag_eval.config import Config
 from rag_eval.indexer import RAGIndex
 from rag_eval.providers.reranker import get_reranker
@@ -51,20 +53,18 @@ class RerankRAG(BaseStrategy):
         top_k = self.cfg.retrieval.top_k
         candidate_k = self.cfg.retrieval.top_k_rerank  # wider net (default 20)
 
-        # Step 1: dense retrieval — more candidates than we'll return
+        # Steps 1–3: retrieval phase including cross-encoder (timed)
+        t_ret = time.perf_counter()
         query_embedding = self.embed_query(question)
         candidates = self.index.dense_search(query_embedding, top_k=candidate_k)
 
         if not candidates:
-            # Edge case: empty index (shouldn't happen in production)
             contexts = []
         else:
-            # Step 2: cross-encoder reranking
             docs = [c["text"] for c in candidates]
             ranked_pairs = self.reranker(question, docs, top_n=min(top_k, len(docs)))
-
-            # Step 3: build context list in rerank order
             contexts = [docs[idx] for idx, _score in ranked_pairs]
+        retrieval_latency_ms = (time.perf_counter() - t_ret) * 1000
 
         # Step 4: generate answer
         answer, prompt_tokens, completion_tokens, latency_ms, cost_usd = self.generate(
@@ -79,6 +79,7 @@ class RerankRAG(BaseStrategy):
             cost_usd=cost_usd,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
+            retrieval_latency_ms=retrieval_latency_ms,
             metadata={
                 "strategy": self.name,
                 "num_candidates": len(candidates),

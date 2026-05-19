@@ -12,6 +12,8 @@ It represents the simplest possible RAG implementation.
 
 from __future__ import annotations
 
+import time
+
 from rag_eval.strategies.base import BaseStrategy, RAGResult
 
 
@@ -27,14 +29,14 @@ class NaiveRAG(BaseStrategy):
     name = "naive"
 
     def answer(self, question: str) -> RAGResult:
-        # Step 1: embed the question
+        # Step 1 + 2: embed then retrieve (timed as retrieval phase)
+        t_ret = time.perf_counter()
         query_embedding = self.embed_query(question)
-
-        # Step 2: dense search
         hits = self.index.dense_search(
             query_embedding,
             top_k=self.cfg.retrieval.top_k,
         )
+        retrieval_latency_ms = (time.perf_counter() - t_ret) * 1000
         contexts = [h["text"] for h in hits]
 
         # Step 3: generate
@@ -50,6 +52,7 @@ class NaiveRAG(BaseStrategy):
             cost_usd=cost_usd,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
+            retrieval_latency_ms=retrieval_latency_ms,
             metadata={
                 "strategy": self.name,
                 "num_hits": len(hits),

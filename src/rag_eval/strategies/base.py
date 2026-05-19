@@ -67,6 +67,10 @@ class RAGResult:
     prompt_tokens: int
     completion_tokens: int
     metadata: dict[str, Any] = field(default_factory=dict)
+    # Time spent in the retrieval phase only (embed + search, excluding LLM generation).
+    # Strategies that include extra LLM calls in retrieval (HyDE, multi_query) include
+    # those calls in this figure since they are part of the retrieval cost.
+    retrieval_latency_ms: float = 0.0
 
 
 # ---------------------------------------------------------------------------

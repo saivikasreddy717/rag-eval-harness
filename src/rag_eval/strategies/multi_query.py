@@ -86,15 +86,14 @@ class MultiQueryRAG(BaseStrategy):
         t0 = time.perf_counter()
         top_k = self.cfg.retrieval.top_k
 
-        # Step 1: generate query variants
+        # Steps 1–3: retrieval phase (includes expansion LLM call)
+        t_ret = time.perf_counter()
         expand_prompt = _EXPAND_PROMPT.format(n=_N_VARIANTS, question=question)
         variants_text, exp_pt, exp_ct, exp_cost = self.raw_llm_call(expand_prompt)
         queries = _parse_query_variants(variants_text, question, max_variants=_N_VARIANTS)
 
-        # Step 2: retrieve for each query, dedup by chunk_id
         seen_ids: set[str] = set()
         merged_hits: list[dict] = []
-
         for q in queries:
             q_embedding = self.embed_query(q)
             hits = self.index.dense_search(q_embedding, top_k=top_k)
@@ -103,8 +102,8 @@ class MultiQueryRAG(BaseStrategy):
                 if cid not in seen_ids:
                     seen_ids.add(cid)
                     merged_hits.append(hit)
+        retrieval_latency_ms = (time.perf_counter() - t_ret) * 1000
 
-        # Step 3: take top_k unique chunks (first-appearance order)
         contexts = [h["text"] for h in merged_hits[:top_k]]
 
         # Step 4: generate answer from merged context
@@ -121,6 +120,7 @@ class MultiQueryRAG(BaseStrategy):
             cost_usd=total_cost_usd,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
+            retrieval_latency_ms=retrieval_latency_ms,
             metadata={
                 "strategy": self.name,
                 "num_queries": len(queries),

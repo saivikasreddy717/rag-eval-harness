@@ -6,6 +6,11 @@ Swap providers and models without touching any code.
 
 Supported LLM providers   : groq, openai, anthropic, ollama, google
 Supported embed providers : local, openai, cohere, ollama, google
+
+New opt-in sections (all default to disabled so existing YAML files load unchanged):
+  agent_eval    — config for eval-agent command
+  online        — config for eval-online command
+  metrics_extra — enables hallucination_rate, context_relevance, retrieval_latency
 """
 
 from __future__ import annotations
@@ -19,6 +24,7 @@ VALID_STRATEGIES = frozenset({"naive", "hybrid", "rerank", "hyde", "multi_query"
 VALID_LLM_PROVIDERS = frozenset({"groq", "openai", "anthropic", "ollama", "google"})
 VALID_EMBED_PROVIDERS = frozenset({"local", "openai", "cohere", "ollama", "google"})
 VALID_RERANK_PROVIDERS = frozenset({"cohere", "none"})
+VALID_AGENT_METRICS = frozenset({"tool_selection", "tool_execution", "coherence"})
 
 
 class LLMConfig(BaseModel):
@@ -110,6 +116,45 @@ class OutputConfig(BaseModel):
     report: bool = True
 
 
+class AgentEvalConfig(BaseModel):
+    """Config for the agent evaluation sub-system (eval-agent command)."""
+
+    enabled: bool = False
+    metrics: list[str] = Field(
+        default_factory=lambda: ["tool_selection", "tool_execution", "coherence"]
+    )
+    coherence_min_steps: int = Field(default=2, ge=1)
+
+    @field_validator("metrics")
+    @classmethod
+    def validate_metrics(cls, v: list[str]) -> list[str]:
+        invalid = set(v) - VALID_AGENT_METRICS
+        if invalid:
+            raise ValueError(
+                f"Unknown agent metrics: {sorted(invalid)}. "
+                f"Valid options: {sorted(VALID_AGENT_METRICS)}"
+            )
+        return v
+
+
+class OnlineConfig(BaseModel):
+    """Config for the online evaluation mode (eval-online command)."""
+
+    enabled: bool = False
+    sample_rate: float = Field(default=0.05, gt=0.0, le=1.0)
+    output_dir: str = "results/online"
+    rollup_interval: str = "daily"
+    seed: int = 42
+
+
+class MetricsExtraConfig(BaseModel):
+    """Opt-in extra RAG/production metrics added alongside the five RAGAS defaults."""
+
+    hallucination_rate: bool = False
+    context_relevance: bool = False
+    retrieval_latency: bool = False
+
+
 class Config(BaseModel):
     """Root config — validated on load, all fields have sensible defaults."""
 
@@ -123,6 +168,9 @@ class Config(BaseModel):
         default_factory=lambda: ["naive", "hybrid", "rerank", "hyde", "multi_query"]
     )
     output: OutputConfig = Field(default_factory=OutputConfig)
+    agent_eval: AgentEvalConfig = Field(default_factory=AgentEvalConfig)
+    online: OnlineConfig = Field(default_factory=OnlineConfig)
+    metrics_extra: MetricsExtraConfig = Field(default_factory=MetricsExtraConfig)
 
     @field_validator("strategies")
     @classmethod
