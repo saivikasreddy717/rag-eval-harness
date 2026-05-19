@@ -1,7 +1,7 @@
 name: CI
 
 # Run on every push to main and on every pull request targeting main.
-# All 115 tests are CI-safe: external API calls are mocked, no real keys needed.
+# All ~145 tests are CI-safe: external API calls are mocked, no real keys needed.
 on:
   push:
     branches: [main]

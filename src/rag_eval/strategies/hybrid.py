@@ -20,6 +20,8 @@ Reference: Cormack et al. (2009) "Reciprocal Rank Fusion outperforms
 
 from __future__ import annotations
 
+import time
+
 from rag_eval.strategies.base import BaseStrategy, RAGResult
 
 
@@ -78,15 +80,13 @@ class HybridRAG(BaseStrategy):
         # Fetch 2× candidates so RRF has room to work
         candidate_k = top_k * 2
 
-        # Step 1: dense retrieval
+        # Steps 1–3: retrieval phase (timed)
+        t_ret = time.perf_counter()
         query_embedding = self.embed_query(question)
         dense_hits = self.index.dense_search(query_embedding, top_k=candidate_k)
-
-        # Step 2: sparse BM25 retrieval
         bm25_hits = self.index.bm25_search(question, top_k=candidate_k)
-
-        # Step 3: RRF fusion
         fused_hits = _rrf_merge(dense_hits, bm25_hits, top_k=top_k)
+        retrieval_latency_ms = (time.perf_counter() - t_ret) * 1000
         contexts = [h["text"] for h in fused_hits]
 
         # Step 4: generate answer
@@ -102,6 +102,7 @@ class HybridRAG(BaseStrategy):
             cost_usd=cost_usd,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
+            retrieval_latency_ms=retrieval_latency_ms,
             metadata={
                 "strategy": self.name,
                 "num_dense_hits": len(dense_hits),

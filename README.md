@@ -77,7 +77,99 @@ Asks the LLM to rephrase the question into 3 alternative formulations targeting 
 
 ---
 
+## Agent Evaluation
+
+Beyond benchmarking retrieval strategies, the harness can score **agent traces** — sequences of tool calls and reasoning steps produced by an AI agent. Enable this with `eval-agent`:
+
+```bash
+rag-eval --config configs/groq_llama4.yaml eval-agent \
+    --traces examples/agent_traces_sample.jsonl
+```
+
+This writes `results/scorecard_agent.csv` with one row per trace.
+
+### The 3 agent metrics
+
+| Metric | What it measures | How | Target |
+|--------|-----------------|-----|--------|
+| **Tool Selection Accuracy** | Did the agent pick the correct tool at each labelled decision point? | Label comparison against `expected_tool` — no LLM required | >0.92 (binary), >0.85 (5+ tools) |
+| **Tool Execution Success** | What fraction of tool calls completed without error? | Reads `tool_call.success` from the trace | >0.98 in production |
+| **Multi-Step Coherence** | Does each step build logically on prior steps? Does the final answer reflect the full chain? | LLM-as-judge scores 0–1 per trace using the configured judge model | >0.85 on 4+ step traces |
+
+Tool selection and execution are pure label comparisons — zero LLM calls, zero cost. Coherence is the only metric that calls the judge LLM (one call per trace).
+
+Thresholds sourced from: Pratik R, *"Building an Evaluation Harness for Production AI Agents: A 12-Metric Framework From 100+ Deployments"*, Towards Data Science, May 2026.
+
+### Trace format
+
+Each line in the JSONL file is an `AgentTrace`. See [`examples/agent_traces_sample.jsonl`](examples/agent_traces_sample.jsonl) for 10 realistic examples covering single-step, multi-step, success, and failure cases.
+
+To enable labelled eval (tool selection accuracy), add `expected_tool` to each tool-calling step:
+
+```jsonl
+{
+  "trace_id": "t-001",
+  "steps": [
+    {
+      "step_id": 0,
+      "input": "Search for recent LLM papers.",
+      "tool_call": {"name": "web_search", "args": {"query": "..."}, "success": true, "error_type": null},
+      "tool_result": "[\"Paper A\", \"Paper B\"]",
+      "output": "Found 2 papers.",
+      "timestamp": "2026-05-18T10:01:00Z",
+      "expected_tool": "web_search"
+    }
+  ],
+  "final_output": "Found 2 recent papers."
+}
+```
+
+### Enabling in config
+
+```yaml
+agent_eval:
+  enabled: true
+  metrics:
+    - tool_selection
+    - tool_execution
+    - coherence
+  coherence_min_steps: 2   # skip traces shorter than this (no cross-step reasoning)
+```
+
+---
+
+## Online Evaluation
+
+The `eval-online` command samples a stream of **production traces** and scores them in near-real-time. It supports mixed streams — agent traces and RAG prediction records are automatically routed to the appropriate eval path.
+
+```bash
+rag-eval --config configs/groq_llama4.yaml eval-online \
+    --traces-stream examples/agent_traces_sample.jsonl \
+    --sample-rate 0.05
+```
+
+This writes:
+- `results/online/YYYY-MM-DD.jsonl` — scored records for the current day
+- `results/online/rollup_YYYY-MM-DD.csv` — daily aggregates: mean, p50, p95, p99 per metric
+
+The default 5% sample rate matches the recommendation from the TDS "12-Metric Framework" article. The sampler uses reservoir sampling so memory stays bounded regardless of stream length. Passing `--sample-rate 1.0` scores every record (useful for offline re-evaluation).
+
+### Config
+
+```yaml
+online:
+  enabled: true
+  sample_rate: 0.05       # fraction of records to score
+  output_dir: results/online
+  rollup_interval: daily
+  seed: 42                # fixed seed for deterministic sampling
+```
+
+---
+
 ## Metrics scored
+
+### Core RAGAS metrics (RAG benchmark)
 
 | Metric | What it measures | Why it matters |
 |--------|-----------------|----------------|
@@ -88,6 +180,46 @@ Asks the LLM to rephrase the question into 3 alternative formulations targeting 
 | **Answer Correctness** | Is the final answer factually correct (vs. ground truth)? | End-to-end quality: retrieval × generation combined |
 
 All metrics are scored 0–1 by a separate judge LLM (Llama 3.3 70B on Groq by default). Per-question scores are written to a scorecard CSV; the `compare` command aggregates across all strategies and generates an HTML report with charts.
+
+### Optional extra metrics (opt-in via `metrics_extra` config)
+
+Enable any combination in your YAML:
+
+```yaml
+metrics_extra:
+  hallucination_rate: true    # fraction of answer claims not in context or common knowledge
+  context_relevance: true     # per-chunk LLM relevance score (distinct from RAGAS precision)
+  retrieval_latency: true     # adds p50/p95/p99 of retrieval-only time to AGGREGATE row
+```
+
+| Metric | What it measures | Notes |
+|--------|-----------------|-------|
+| **Hallucination Rate** | Fraction of answer claims that are neither grounded in retrieved context nor verifiable as common knowledge | LLM judge; target <2% general, <0.5% regulated domains |
+| **Context Relevance** | Mean LLM-judge relevance score across all retrieved chunks, per query | Distinct from RAGAS context_precision (MRR-based); gives an absolute per-chunk score |
+| **Retrieval Latency p95** | 95th-percentile of retrieval-only time (embed + search, excluding LLM generation) | Surfaced as `retrieval_latency_p95_ms` in the AGGREGATE scorecard row |
+
+---
+
+## Metrics coverage table
+
+The table below maps this harness to the 12-metric framework from Pratik R's TDS article (May 2026). ✅ = implemented, 🔜 = planned.
+
+| Category | Metric | Status | Command |
+|----------|--------|--------|---------|
+| **Retrieval** | Context Precision | ✅ | `eval` |
+| **Retrieval** | Context Recall | ✅ | `eval` |
+| **Retrieval** | Context Relevance (per-chunk) | ✅ | `eval` (opt-in) |
+| **Retrieval** | Retrieval Latency p95 | ✅ | `eval` (opt-in) |
+| **Generation** | Faithfulness | ✅ | `eval` |
+| **Generation** | Answer Relevancy | ✅ | `eval` |
+| **Generation** | Hallucination Rate | ✅ | `eval` (opt-in) |
+| **Agent** | Tool Selection Accuracy | ✅ | `eval-agent` |
+| **Agent** | Tool Execution Success | ✅ | `eval-agent` |
+| **Agent** | Multi-Step Coherence | ✅ | `eval-agent` |
+| **Production cost** | Cost per Query | 🔜 | — |
+| **Production cost** | Cost per Correct Answer | 🔜 | — |
+
+**Coverage after this release: 10 of 12.** Cost-per-query tracking is planned as future work.
 
 ---
 
@@ -141,7 +273,7 @@ make compare  # merge scorecards → results/results.csv + results/report.html
 ### Or use the CLI directly
 
 ```bash
-# With a custom config
+# RAG benchmark pipeline
 rag-eval --config configs/groq_llama4.yaml index
 rag-eval --config configs/groq_llama4.yaml run
 rag-eval --config configs/groq_llama4.yaml eval
@@ -153,6 +285,15 @@ rag-eval --config configs/groq_llama4.yaml run --strategy naive --strategy hybri
 # Limit questions for a quick test
 rag-eval --config configs/groq_llama4.yaml run --max-questions 20
 rag-eval --config configs/groq_llama4.yaml eval --max-questions 20
+
+# Agent evaluation (tool selection, execution, coherence)
+rag-eval --config configs/groq_llama4.yaml eval-agent \
+    --traces examples/agent_traces_sample.jsonl
+
+# Online evaluation (sampled production stream)
+rag-eval --config configs/groq_llama4.yaml eval-online \
+    --traces-stream examples/agent_traces_sample.jsonl \
+    --sample-rate 1.0
 ```
 
 ---
@@ -276,6 +417,8 @@ Preliminary results on 50-question spot check (Groq free tier):
 ```
 rag-eval-harness/
 ├── configs/                    # Provider presets (groq, openai, ollama, gemini)
+├── examples/
+│   └── agent_traces_sample.jsonl  # 10 realistic agent traces for eval-agent
 ├── src/rag_eval/
 │   ├── providers/
 │   │   ├── llm.py              # LLM factory — returns LangChain ChatModel
@@ -288,12 +431,24 @@ rag-eval-harness/
 │   │   ├── rerank.py           # Dense candidates → Cohere cross-encoder
 │   │   ├── hyde.py             # Hypothetical Document Embeddings
 │   │   └── multi_query.py      # Query expansion + deduplication
+│   ├── agent_eval/             # Agent evaluation sub-package (eval-agent command)
+│   │   ├── trace.py            # Pydantic v2 AgentTrace / AgentStep / ToolCall models
+│   │   ├── fixtures.py         # Mock trace generators for tests
+│   │   ├── evaluator.py        # Orchestrates agent metrics → scorecard_agent.csv
+│   │   └── metrics/
+│   │       ├── tool_selection.py   # Accuracy vs expected_tool labels
+│   │       ├── tool_execution.py   # Success rate + error categorisation
+│   │       └── coherence.py        # LLM-as-judge multi-step coherence
+│   ├── online/                 # Online evaluation sub-package (eval-online command)
+│   │   ├── sampler.py          # Reservoir sampler (deterministic, bounded memory)
+│   │   ├── runner.py           # Mixed-stream router → scored JSONL
+│   │   └── storage.py          # Append JSONL + daily rollup CSV
 │   ├── config.py               # Pydantic v2 config schema + YAML loader
-│   ├── cli.py                  # Click CLI: index / run / eval / compare
+│   ├── cli.py                  # Click CLI: index / run / eval / compare / eval-agent / eval-online
 │   ├── datasets.py             # HuggingFace dataset loading + caching
 │   ├── indexer.py              # FAISS IndexFlatIP + BM25Okapi builder
 │   ├── runner.py               # Orchestrate strategy runs, write JSONL predictions
-│   ├── evaluator.py            # RAGAS scoring → scorecard CSV
+│   ├── evaluator.py            # RAGAS + extra metrics → scorecard CSV
 │   └── reporter.py             # load_scorecards → comparison matrix → HTML report
 ├── tests/
 │   ├── conftest.py             # CI safety: TOKENIZERS_PARALLELISM=false
@@ -302,7 +457,10 @@ rag-eval-harness/
 │   ├── test_phase3.py          # Evaluator + RAGAS scoring (fully mocked)
 │   ├── test_phase4.py          # Hybrid/rerank/HyDE/multi-query strategies
 │   ├── test_phase5.py          # Reporter: load, matrix, charts, HTML, CLI compare
-│   └── test_smoke.py           # CLI smoke tests
+│   ├── test_smoke.py           # CLI smoke tests
+│   ├── test_agent_eval.py      # Agent trace schema + 3 agent metrics + orchestrator
+│   ├── test_online_eval.py     # Sampler + storage + runner
+│   └── test_new_rag_metrics.py # Hallucination rate + context relevance + latency p95
 ├── .github/workflows/ci.yml    # Python 3.10 + 3.12 matrix, uv cache, HF model cache
 ├── Makefile                    # index / run / eval / compare / benchmark / test
 └── pyproject.toml              # Dependencies, ruff config, pytest filterwarnings
@@ -313,14 +471,14 @@ rag-eval-harness/
 ## Running tests
 
 ```bash
-# Run all 115 tests (no API keys needed)
+# Run all ~145 tests (no API keys needed)
 make test
 
 # Verbose with short tracebacks
 uv run pytest tests/ -v --tb=short
 
-# Just one phase
-uv run pytest tests/test_phase4.py -v
+# Run only the new agent / online / extra-metrics tests
+uv run pytest tests/test_agent_eval.py tests/test_online_eval.py tests/test_new_rag_metrics.py -v
 ```
 
 All tests mock out LLM and embeddings calls. The BGE-large model is loaded once during tests that exercise the real embedding path (Phase 1 index tests); subsequent runs use the HuggingFace local cache.

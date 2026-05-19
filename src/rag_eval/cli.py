@@ -9,6 +9,8 @@ Usage:
     python -m rag_eval run --strategy naive --strategy hybrid
     python -m rag_eval eval
     python -m rag_eval compare
+    python -m rag_eval eval-agent --traces examples/agent_traces_sample.jsonl
+    python -m rag_eval eval-online --traces-stream examples/agent_traces_sample.jsonl --sample-rate 1.0
 """
 
 from __future__ import annotations
@@ -288,6 +290,102 @@ def eval_cmd(ctx: click.Context, strategy: tuple[str, ...], max_questions: int |
         f"Scorecards saved to [cyan]{cfg.output.dir}/[/]. "
         "Run [bold]python -m rag_eval compare[/] next."
     )
+
+
+@main.command("eval-agent")
+@click.option(
+    "--traces",
+    "-t",
+    required=True,
+    type=click.Path(exists=True, dir_okay=False),
+    help="Path to a JSONL file of AgentTrace objects (one per line).",
+)
+@click.pass_context
+def eval_agent_cmd(ctx: click.Context, traces: str) -> None:
+    """Score agent traces: tool selection, tool execution, and multi-step coherence."""
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    from pathlib import Path
+
+    from rag_eval.agent_eval.evaluator import evaluate_agent_traces
+    from rag_eval.config import load_config
+
+    cfg = load_config(ctx.obj["config_path"])
+
+    # Force agent_eval enabled for this command even if config says disabled
+    cfg = cfg.model_copy(update={"agent_eval": cfg.agent_eval.model_copy(update={"enabled": True})})
+
+    try:
+        scorecard = evaluate_agent_traces(Path(traces), cfg)
+    except (FileNotFoundError, ValueError) as exc:
+        console.print(f"[red]{exc}[/]")
+        raise SystemExit(1)
+
+    console.rule("[green]Agent eval complete[/]")
+    console.print(f"[bold green]Scorecard:[/] [cyan]{scorecard}[/]")
+
+
+@main.command("eval-online")
+@click.option(
+    "--traces-stream",
+    "-t",
+    required=True,
+    type=click.Path(exists=True, dir_okay=False),
+    help="Path to a JSONL stream of production traces (agent or RAG records).",
+)
+@click.option(
+    "--sample-rate",
+    "-r",
+    default=None,
+    type=float,
+    show_default=True,
+    help="Fraction of records to sample (overrides config). Default: value from config (0.05).",
+)
+@click.pass_context
+def eval_online_cmd(ctx: click.Context, traces_stream: str, sample_rate: float | None) -> None:
+    """
+    Sample and score a stream of production traces, writing dated JSONL + rollup CSV.
+
+    Supports mixed streams: agent traces (with trace_id + steps) and RAG predictions
+    (with question + answer) are routed to the appropriate eval path automatically.
+    """
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    from datetime import date
+    from pathlib import Path
+
+    from rag_eval.config import load_config
+    from rag_eval.online.runner import run_online_eval
+    from rag_eval.online.storage import build_daily_rollup
+
+    cfg = load_config(ctx.obj["config_path"])
+    today = date.today()
+
+    try:
+        jsonl_out = run_online_eval(
+            Path(traces_stream),
+            cfg,
+            sample_rate=sample_rate,
+            run_date=today,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        console.print(f"[red]{exc}[/]")
+        raise SystemExit(1)
+
+    console.print(f"[green]Online eval JSONL:[/] [cyan]{jsonl_out}[/]")
+
+    # Build daily rollup
+    try:
+        rollup_out = build_daily_rollup(jsonl_out, today)
+        console.print(f"[green]Daily rollup CSV:[/] [cyan]{rollup_out}[/]")
+    except ValueError as exc:
+        console.print(f"[yellow]Rollup skipped:[/] {exc}")
+
+    console.rule("[green]Online eval complete[/]")
 
 
 @main.command()
